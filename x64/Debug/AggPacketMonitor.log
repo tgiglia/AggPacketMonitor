@@ -1,0 +1,18 @@
+﻿  pch.cpp
+  AggPacketMonitor.cpp
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(137,1): warning C4996: 'scanf': This function or variable may be unsafe. Consider using scanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt\stdio.h(1274): message : see declaration of 'scanf'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(232,8): warning C4101: 'pOffset': unreferenced local variable
+  AnalyzeWebSocketFrame.cpp
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(307,19): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AnalyzeWebSocketFrame.cpp(91,62): warning C4244: 'argument': conversion from 'unsigned __int64' to 'int', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AnalyzeWebSocketFrame.cpp(106,43): warning C4267: 'initializing': conversion from 'size_t' to 'char', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AnalyzeWebSocketFrame.cpp(108,1): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+  AssemblyInfo.cpp
+  CBitMasking.cpp
+  Generating Code...
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt\string.h(133): message : see declaration of 'strcpy'
+  .NETFramework,Version=v4.7.AssemblyAttributes.cpp
+  AggPacketMonitor.obj : MSIL module encountered; incremental linking is disabled for MSIL; performing full link
+AggPacketMonitor.obj : warning LNK4248: unresolved typeref token (0100001A) for 'pcap'; image may not run
+  AggPacketMonitor.vcxproj -> C:\Users\tom.giglia\source\repos\AggPacketMonitor\x64\Debug\AggPacketMonitor.exe

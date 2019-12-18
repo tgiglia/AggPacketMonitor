@@ -1,0 +1,9 @@
+﻿  AggPacketMonitor.cpp
+  AggPacketMonitor.obj : MSIL module encountered; incremental linking is disabled for MSIL; performing full link
+LINK : warning LNK4199: /DELAYLOAD:wpcap.dll ignored; no imports found from wpcap.dll
+AggPacketMonitor.obj : error LNK2028: unresolved token (0A000446) "extern "C" void __cdecl pcap_freealldevs(struct pcap_if *)" (?pcap_freealldevs@@$$J0YAXPAUpcap_if@@@Z) referenced in function "void __cdecl runNpcap(void)" (?runNpcap@@$$FYAXXZ)
+AggPacketMonitor.obj : error LNK2028: unresolved token (0A000448) "extern "C" int __cdecl pcap_findalldevs(struct pcap_if * *,char *)" (?pcap_findalldevs@@$$J0YAHPAPAUpcap_if@@PAD@Z) referenced in function "void __cdecl runNpcap(void)" (?runNpcap@@$$FYAXXZ)
+AggPacketMonitor.obj : error LNK2019: unresolved external symbol "extern "C" int __cdecl pcap_findalldevs(struct pcap_if * *,char *)" (?pcap_findalldevs@@$$J0YAHPAPAUpcap_if@@PAD@Z) referenced in function "void __cdecl runNpcap(void)" (?runNpcap@@$$FYAXXZ)
+AggPacketMonitor.obj : error LNK2019: unresolved external symbol "extern "C" void __cdecl pcap_freealldevs(struct pcap_if *)" (?pcap_freealldevs@@$$J0YAXPAUpcap_if@@@Z) referenced in function "void __cdecl runNpcap(void)" (?runNpcap@@$$FYAXXZ)
+C:\Users\tom.giglia\source\repos\npcap-sdk-1.04\Lib\x64\wpcap.lib : warning LNK4272: library machine type 'x64' conflicts with target machine type 'x86'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\Debug\AggPacketMonitor.exe : fatal error LNK1120: 4 unresolved externals
