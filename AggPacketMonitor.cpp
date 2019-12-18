@@ -232,6 +232,7 @@ void tcp_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 	BYTE* pOffset;
 	BYTE b = 0;
 	int bStandard = 0;
+	std::string* strp = new std::string();
 	/*
 	 * unused parameter
 	 */
@@ -279,7 +280,7 @@ void tcp_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 	{
 		showPayloadData(ucpPayload, 5);
 		AnalyzeWebSocketFrame* awf = new AnalyzeWebSocketFrame(ucpPayload, ipDataLen - uiPayloadLocation);
-		awf->AnalyzeFrame();
+		awf->AnalyzeFrame(strp);
 
 		delete awf;
 	}
