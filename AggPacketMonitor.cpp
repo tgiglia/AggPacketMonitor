@@ -98,11 +98,13 @@ void printBits(size_t const size, void const* const ptr);
 int isStandard(unsigned char c);
 void showPayloadData(u_char* ucp, int num);
 void AggregatorProcessor(unsigned __int64 timeStamp, ip_header *ih, tcp_header *tcpH, u_char* ucpPayload, 
-	std::map<idType, unsigned __int64>* reads,u_short dataLen);
+	u_short dataLen);
 void PNCProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* tcpH, u_char* ucpPayload,
-	std::map<idType, unsigned __int64>* reads, u_short dataLen);
+	u_short dataLen);
+void PNCReporter(ReadInfo read, ReadInfo pnc);
 
-std::map<idType, unsigned __int64>* readsMap;
+std::map<ReadInfo,int> readsMap;
+std::map<std::string, ReadInfo> aggMap;
 char cpAggregatorIP[64];
 char cpPNCIP[64];
 u_short usAggPort = 8099;
@@ -135,7 +137,7 @@ int runNpcap()
 	strcpy(cpAggregatorIP, "10.24.2.3");
 	strcpy(cpPNCIP, "172.20.72.82");
 
-	readsMap = new std::map<idType, unsigned __int64>;
+	
 	//reportQueue = new concurrent_queue<reportRec>;
 
 #ifdef WIN32
@@ -245,7 +247,7 @@ int runNpcap()
 	/* start the capture */
 	pcap_loop(adhandle, 0, pnc_packet_handler, NULL);
 
-	delete readsMap;
+	
 	return 0;
 }
 
@@ -343,14 +345,14 @@ void pnc_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 	if (iDestType == 1)// This may be a PUT READ to the agg
 	{
 		printf("\t%s:%d is a Aggregator message\n", cpDestIp, dport);
-		AggregatorProcessor(now, ih, tcpH, ucpPayload, readsMap, ipDataLen - uiPayloadLocation);
+		AggregatorProcessor(now, ih, tcpH, ucpPayload, ipDataLen - uiPayloadLocation);
 	}
 	else {
 		if (ipDataLen <= uiPayloadLocation) {
 			return;
 		}
 		printf("\t%s:%d is a PNC message\n", cpDestIp, dport);
-		PNCProcessor(now, ih, tcpH, ucpPayload, readsMap, ipDataLen - uiPayloadLocation);
+		PNCProcessor(now, ih, tcpH, ucpPayload, ipDataLen - uiPayloadLocation);
 	}
 }
 
@@ -430,16 +432,16 @@ void tcp_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 }
 
 void AggregatorProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* tcpH, u_char* ucpPayload,
-	std::map<idType, unsigned __int64>* reads, u_short dataLen)
+	u_short dataLen)
 {
 
 }
 
 
-void PNCProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* tcpH, u_char* ucpPayload,
-	std::map<idType, unsigned __int64>* reads, u_short dataLen)
+void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH, u_char* ucpPayload,
+	u_short dataLen)
 {
-	idType theId;
+	
 
 	if (dataLen < 256)// this is probably a control message, not a true message
 	{
@@ -463,22 +465,41 @@ void PNCProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* tcpH, u
 	cpId++;cpId++;cpId++;cpId++;
 
 	//Get everything up to the " character
-	memset(&theId, 0, 64);
+	char cpTemp[64];
+	memset(&cpTemp, 0, 64);
 	int cnt = 0;
 	do {
 		if (cpId[cnt] == '"')
 			break;
-		theId.cpId[cnt] = cpId[cnt];
+		cpTemp[cnt] = cpId[cnt];
 		cnt++;
-	} while (cnt < 63);
-	printf("PNCProcessor: Id: %s Timestamp:%ld\n", theId.cpId,timeStamp);
-
-	//does the map have this Id?
+	} while (cnt < 62);
+	printf("PNCProcessor: Id: %s Timestamp:%lu\n", cpTemp,timeStamp);
+	ReadInfo theId(cpTemp,timeStamp);
+	//this is to fake what would have been done by the AggregatorProcessor
+	readsMap.insert(std::make_pair<ReadInfo,int>(ReadInfo(theId.getId(),theId.getTimeStamp()), 1));
+	//std::map<std::string, ReadInfo> aggMap;
+	aggMap.insert(std::make_pair<std::string,ReadInfo>(std::string(theId.getId()),ReadInfo(theId.getId(),theId.getTimeStamp()-4)));
+	std::map<std::string, ReadInfo>::iterator aggIt;
+	aggIt = aggMap.find(theId.getId());
+	if (aggIt != aggMap.end()) {
+		ReadInfo r = aggIt->second;
+		printf("PNCProcessor: the map found a match: %s\n", r.getId().c_str());
+		PNCReporter(r, theId);
+		aggMap.erase(theId.getId());
+	}
+	else {
+		puts("PNCProcessor: the map DID NOT find a match.");
+	}
+	
 
 	delete awf;
 	delete strp;
-	
+}
 
+void PNCReporter(ReadInfo read, ReadInfo pnc)
+{
+	printf("TimeDifference is: %lu milliseconds\n", (unsigned long)pnc.getTimeStamp() - read.getTimeStamp());
 }
 
 
