@@ -434,6 +434,30 @@ void tcp_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 void AggregatorProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* tcpH, u_char* ucpPayload,
 	u_short dataLen)
 {
+	char* cp = (char *)ucpPayload;
+
+	char *cpUrl = strstr((char *)cp,"PUT /read/");
+	if (cpUrl == NULL) {
+		puts("\tAggregatorProcessor: could not find PUT /read/");
+		return;
+	}
+	//crawl up to the begining of the id
+	for (int i = 0;i < 11;i++) {
+		cpUrl++;
+	}
+	// Get everything up to the " character
+	char cpTemp[128];
+	memset(&cpTemp, 0, 128);
+	int cnt = 0;
+	do {
+		if (cpUrl[cnt] == ' ')
+			break;
+		cpTemp[cnt] = cpUrl[cnt];
+		cnt++;
+	} while (cnt < 126);
+	printf("\tAggregatorProcessor: the id: %s timeStamp: %lu\n",cpTemp,timeStamp);
+	ReadInfo theId(cpTemp, timeStamp);
+	aggMap.insert(std::make_pair<std::string, ReadInfo>(std::string(theId.getId()), ReadInfo(theId.getId(), theId.getTimeStamp())));
 
 }
 
@@ -458,7 +482,7 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 	char* cpId = strstr((char *)strp->c_str(), "id=");
 	if (cpId == NULL)
 	{
-		puts("PNCProcessor: could not find id=");
+		puts("\tPNCProcessor: could not find id=");
 		return;
 	}
 	//crawl up to the begining of the id
@@ -474,22 +498,20 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 		cpTemp[cnt] = cpId[cnt];
 		cnt++;
 	} while (cnt < 62);
-	printf("PNCProcessor: Id: %s Timestamp:%lu\n", cpTemp,timeStamp);
+	printf("\tPNCProcessor: Id: %s Timestamp:%lu\n", cpTemp,timeStamp);
 	ReadInfo theId(cpTemp,timeStamp);
 	//this is to fake what would have been done by the AggregatorProcessor
-	readsMap.insert(std::make_pair<ReadInfo,int>(ReadInfo(theId.getId(),theId.getTimeStamp()), 1));
-	//std::map<std::string, ReadInfo> aggMap;
-	aggMap.insert(std::make_pair<std::string,ReadInfo>(std::string(theId.getId()),ReadInfo(theId.getId(),theId.getTimeStamp()-4)));
+	//aggMap.insert(std::make_pair<std::string,ReadInfo>(std::string(theId.getId()),ReadInfo(theId.getId(),theId.getTimeStamp()-4)));
 	std::map<std::string, ReadInfo>::iterator aggIt;
 	aggIt = aggMap.find(theId.getId());
 	if (aggIt != aggMap.end()) {
 		ReadInfo r = aggIt->second;
-		printf("PNCProcessor: the map found a match: %s\n", r.getId().c_str());
+		printf("\tPNCProcessor: the map found a match: %s\n", r.getId().c_str());
 		PNCReporter(r, theId);
 		aggMap.erase(theId.getId());
 	}
 	else {
-		puts("PNCProcessor: the map DID NOT find a match.");
+		puts("\tPNCProcessor: the map DID NOT find a match.");
 	}
 	
 

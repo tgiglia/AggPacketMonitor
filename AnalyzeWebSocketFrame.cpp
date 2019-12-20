@@ -9,11 +9,11 @@
 using namespace std;
 
 AnalyzeWebSocketFrame::AnalyzeWebSocketFrame(unsigned char* f, int len) {
-	cout << "AnalyzeWebSocketFrame::AnalyzeWebSocketFrame: len = " << len << " fLen=" << fLen << endl;
+	//cout << "AnalyzeWebSocketFrame::AnalyzeWebSocketFrame: len = " << len << " fLen=" << fLen << endl;
 	//frame = new unsigned char(len+2);
 	frame = f;
 	fLen = len;
-	cout << "AnalyzeWebSocketFrame::AnalyzeWebSocketFrame: After assignment len = " << len << " fLen=" << fLen << endl;
+	//cout << "AnalyzeWebSocketFrame::AnalyzeWebSocketFrame: After assignment len = " << len << " fLen=" << fLen << endl;
 	
 }
 void AnalyzeWebSocketFrame::ShowMe() {
@@ -34,59 +34,59 @@ void AnalyzeWebSocketFrame::AnalyzeFrame(std::string *strp)
 	BYTE  byteTwo = frame[1];
 	//Is the MASK Bit Set?
 	CBitMasking mask(byteTwo);
-	std::cout << "\nAnalyzeWebSocketFrame::AnalyzeFrame: Initial value is:";
-	mask.Display();
+	//std::cout << "\nAnalyzeWebSocketFrame::AnalyzeFrame: Initial value is:";
+	//mask.Display();
 	if (mask.CheckBit(CBitMasking::Bit8)) {
-		std::cout << "\nEighth bit is on";
+		//std::cout << "\nEighth bit is on";
 		isMaskSet = true;
 	}
 	else {
-		std::cout << "\nEighth bit is off";
+		//std::cout << "\nEighth bit is off";
 		isMaskSet = false;
 	}
 	//Mask off bit 8 and check the remaining value
 	mask.ClearBit(CBitMasking::Bit8);
-	std::cout << "\nAfter clearing bit8\n";
-	mask.Display();
+	//std::cout << "\nAfter clearing bit8\n";
+	//mask.Display();
 	BYTE cleared8 = mask.rtMask();
 	if (cleared8 < 126) {
 		int iMaskStart = 2;
 		int iPayloadStart = 6;
-		printf("\nThe payload size is less than 126: %d\n", cleared8);
+		//printf("\nThe payload size is less than 126: %d\n", cleared8);
 		//the next four bytes are the mask.
 
 		unsigned char* ucpMask = &frame[iMaskStart];
 		unsigned char* ucpPayload = &frame[iPayloadStart];
 		int iPayloadSize = fLen - iPayloadStart;
-		printf("Mask[0] = 0x%x Payload[0] = 0x%x iPayloadSize = %d\n", ucpMask[0], ucpPayload[0], iPayloadSize);
+		//printf("Mask[0] = 0x%x Payload[0] = 0x%x iPayloadSize = %d\n", ucpMask[0], ucpPayload[0], iPayloadSize);
 		DecodePayload(ucpMask, ucpPayload, iPayloadSize,strp);
 
 	}
 	else if (cleared8 == 126) {
 		int iMaskStart = 4;
 		int iPayloadStart = 8;
-		std::cout << "\nThe payload size is in the next 2 bytes.";
+		//std::cout << "\nThe payload size is in the next 2 bytes.";
 		//Move the next two bytes into a 16 bit unsigned integer
 		int payloadSize = frame[3] | frame[2] << 8;
-		printf("frame[2] = 0X%x frame[3] = 0X%x\n", frame[2], frame[3]);
-		cout << "payloadSize = " << payloadSize << endl;
+		//printf("frame[2] = 0X%x frame[3] = 0X%x\n", frame[2], frame[3]);
+		//cout << "payloadSize = " << payloadSize << endl;
 		//cout << std::bitset<16>(payloadSize);
 		unsigned char* ucpMask = &frame[iMaskStart];
 		unsigned char* ucpPayload = &frame[iPayloadStart];
 		int iPayloadSize = fLen - iPayloadStart;
-		printf("Mask[0] = 0x%x Payload[0] = 0x%x iPayloadSize = %d\n", ucpMask[0], ucpPayload[0], iPayloadSize);
+		//printf("Mask[0] = 0x%x Payload[0] = 0x%x iPayloadSize = %d\n", ucpMask[0], ucpPayload[0], iPayloadSize);
 		DecodePayload(ucpMask, ucpPayload, payloadSize,strp);
 		
 	}
 	else if (cleared8 == 127) {
-		std::cout << "\nThe payload size is in the next 8 bytes.";
+		//std::cout << "\nThe payload size is in the next 8 bytes.";
 		int iMaskStart = 10;
 		int iPayloadStart = 14;
 		//You get the payload size from the 2,3,4,5,6,7,8,9
 		unsigned char ucpPayloadSize[8] = { frame[3], frame[2],frame[5],frame[4],frame[7],frame[6],frame[9],frame[8] };
 		unsigned long long payloadSize;
 		memcpy(&payloadSize, ucpPayloadSize, sizeof(unsigned long long));
-		cout << "payloadSize = " << payloadSize << endl;
+		//cout << "payloadSize = " << payloadSize << endl;
 		unsigned char* ucpMask = &frame[iMaskStart];
 		unsigned char* ucpPayload = &frame[iPayloadStart];
 		DecodePayload(ucpMask, ucpPayload, payloadSize,strp);
@@ -101,60 +101,60 @@ void AnalyzeWebSocketFrame::AnalyzeFrame() {
 	BYTE  byteTwo = frame[1];
 	//Is the MASK Bit Set?
 	CBitMasking mask(byteTwo);
-	std::cout << "\nAnalyzeWebSocketFrame::AnalyzeFrame: Initial value is:";
+	//std::cout << "\nAnalyzeWebSocketFrame::AnalyzeFrame: Initial value is:";
 	mask.Display();
 	if (mask.CheckBit(CBitMasking::Bit8)) {
-		std::cout << "\nEighth bit is on";
+		//std::cout << "\nEighth bit is on";
 		isMaskSet = true;
 	}
 	else {
-		std::cout << "\nEighth bit is off";
+		//std::cout << "\nEighth bit is off";
 		isMaskSet = false;
 	}
 	//Mask off bit 8 and check the remaining value
 	mask.ClearBit(CBitMasking::Bit8);
-	std::cout << "\nAfter clearing bit8\n";
+	//std::cout << "\nAfter clearing bit8\n";
 	mask.Display();
 	BYTE cleared8 = mask.rtMask();
 	if (cleared8 < 126) {
 		int iMaskStart = 2;
 		int iPayloadStart = 6;
-		printf("\nThe payload size is less than 126: %d\n", cleared8);
+		//printf("\nThe payload size is less than 126: %d\n", cleared8);
 		//the next four bytes are the mask.
 		
 		unsigned char* ucpMask = &frame[iMaskStart];
 		unsigned char* ucpPayload = &frame[iPayloadStart];
 		int iPayloadSize = fLen - iPayloadStart;
-		printf("Mask[0] = 0x%x Payload[0] = 0x%x iPayloadSize = %d\n", ucpMask[0], ucpPayload[0], iPayloadSize);
+		//printf("Mask[0] = 0x%x Payload[0] = 0x%x iPayloadSize = %d\n", ucpMask[0], ucpPayload[0], iPayloadSize);
 		const char *cpPayload = DecodePayload(ucpMask, ucpPayload, iPayloadSize);
-		printf("Payload: %s\n", cpPayload);
+		//printf("Payload: %s\n", cpPayload);
 
 	}
 	else if (cleared8 == 126) {
 		int iMaskStart = 4;
 		int iPayloadStart = 8;
-		std::cout << "\nThe payload size is in the next 2 bytes.";
+		//std::cout << "\nThe payload size is in the next 2 bytes.";
 		//Move the next two bytes into a 16 bit unsigned integer
 		int payloadSize = frame[3] | frame[2] << 8;
-		printf("frame[2] = 0X%x frame[3] = 0X%x\n", frame[2], frame[3]);
-		cout << "payloadSize = " << payloadSize << endl;
+		//printf("frame[2] = 0X%x frame[3] = 0X%x\n", frame[2], frame[3]);
+		//cout << "payloadSize = " << payloadSize << endl;
 		//cout << std::bitset<16>(payloadSize);
 		unsigned char* ucpMask = &frame[iMaskStart];
 		unsigned char* ucpPayload = &frame[iPayloadStart];
 		int iPayloadSize = fLen - iPayloadStart;
-		printf("Mask[0] = 0x%x Payload[0] = 0x%x iPayloadSize = %d\n", ucpMask[0], ucpPayload[0], iPayloadSize);
+		//printf("Mask[0] = 0x%x Payload[0] = 0x%x iPayloadSize = %d\n", ucpMask[0], ucpPayload[0], iPayloadSize);
 		const char* cpPayload = DecodePayload(ucpMask, ucpPayload, payloadSize);
 		//printf("Payload: %s\n", cpPayload);
 	}
 	else if (cleared8 == 127) {
-		std::cout << "\nThe payload size is in the next 8 bytes.";
+		//std::cout << "\nThe payload size is in the next 8 bytes.";
 		int iMaskStart = 10;
 		int iPayloadStart = 14;
 		//You get the payload size from the 2,3,4,5,6,7,8,9
 		unsigned char ucpPayloadSize[8] = { frame[3], frame[2],frame[5],frame[4],frame[7],frame[6],frame[9],frame[8] };
 		unsigned long long payloadSize;
 		memcpy(&payloadSize, ucpPayloadSize, sizeof(unsigned long long));
-		cout << "payloadSize = " << payloadSize << endl;
+		//cout << "payloadSize = " << payloadSize << endl;
 		unsigned char* ucpMask = &frame[iMaskStart];
 		unsigned char* ucpPayload = &frame[iPayloadStart];
 		const char* cpPayload = DecodePayload(ucpMask, ucpPayload, payloadSize);
@@ -186,5 +186,5 @@ void AnalyzeWebSocketFrame::DecodePayload(unsigned char* ucpMask, unsigned char*
 		//printf("%d Key: 0x%x Masked: 0x%x Unmasked: %c\n", i,key, ucpPayload[i], theChar);
 		strp->push_back(theChar);
 	}
-	cout << "AnalyzeWebSocketFrame::DecodePayload: unmasked payload: " << *strp << endl;
+	//cout << "AnalyzeWebSocketFrame::DecodePayload: unmasked payload: " << *strp << endl;
 }
