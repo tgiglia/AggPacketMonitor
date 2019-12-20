@@ -32,6 +32,9 @@
     <ClInclude Include="AnaylyzeWebsocketFrame.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="concurrent_queue.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AggPacketMonitor.cpp">
