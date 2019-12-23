@@ -1,6 +1,18 @@
-﻿  AnalyzeWebSocketFrame.cpp
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AnalyzeWebSocketFrame.cpp(92,38): warning C4244: 'argument': conversion from 'unsigned __int64' to 'int', possible loss of data
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AnalyzeWebSocketFrame.cpp(160,62): warning C4244: 'argument': conversion from 'unsigned __int64' to 'int', possible loss of data
+﻿  AggPacketMonitor.cpp
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(135,25): warning C4129: '(': unrecognized character escape sequence
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(135,25): warning C4129: ')': unrecognized character escape sequence
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(140,1): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt\string.h(133): message : see declaration of 'strcpy'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(141,1): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt\string.h(133): message : see declaration of 'strcpy'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(178,1): warning C4996: 'scanf': This function or variable may be unsafe. Consider using scanf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt\stdio.h(1274): message : see declaration of 'scanf'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(317,1): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
+C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt\stdio.h(1774): message : see declaration of 'sprintf'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(273,8): warning C4101: 'pOffset': unreferenced local variable
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(378,8): warning C4101: 'pOffset': unreferenced local variable
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(489,24): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(564,19): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
   AggPacketMonitor.obj : MSIL module encountered; incremental linking is disabled for MSIL; performing full link
 AggPacketMonitor.obj : warning LNK4248: unresolved typeref token (0100001A) for 'pcap'; image may not run
   AggPacketMonitor.vcxproj -> C:\Users\tom.giglia\source\repos\AggPacketMonitor\x64\Debug\AggPacketMonitor.exe

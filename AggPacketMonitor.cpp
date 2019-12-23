@@ -108,8 +108,10 @@ std::map<std::string, ReadInfo> aggMap;
 char cpAggregatorIP[64];
 char cpPNCIP[64];
 u_short usAggPort = 8099;
-u_short usPncPort = 5000;
+u_short usPncPort = 8100;
 //concurrent_queue<reportRec>* reportQueue;
+unsigned long long ullTotal = 0;
+int iSampleCount;
 
 int main(array<System::String ^> ^args)
 {
@@ -129,13 +131,14 @@ int runNpcap()
 	int i = 0;
 	pcap_t* adhandle;
 	u_int netmask;
-	char packet_filter[] = "ip and tcp and host 172.20.72.82 and dst port 5000";
-	
+	//char packet_filter[] = "ip and tcp and host 10.24.2.3 and dst port 8099";
+	char packet_filter[] = "ip and tcp and host 10.24.2.3 and \(dst port 8099 or dst port 8100\)"; 
+	//char packet_filter[] = "ip and tcp and host 10.24.2.3 and dst port 8099";
 	struct bpf_program fcode;
 	unsigned short us = 5;
 	
 	strcpy(cpAggregatorIP, "10.24.2.3");
-	strcpy(cpPNCIP, "172.20.72.82");
+	strcpy(cpPNCIP, "10.24.2.181");
 
 	
 	//reportQueue = new concurrent_queue<reportRec>;
@@ -300,7 +303,7 @@ void pnc_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 
 
 	/* print ip addresses and udp ports */
-	printf("%d.%d.%d.%d.%d -> %d.%d.%d.%d.%d sequence: %u ack: %u ip len: %u window size: %u\n",
+	/*printf("%d.%d.%d.%d.%d -> %d.%d.%d.%d.%d sequence: %u ack: %u ip len: %u window size: %u\n",
 		ih->saddr.byte1,
 		ih->saddr.byte2,
 		ih->saddr.byte3,
@@ -310,7 +313,7 @@ void pnc_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 		ih->daddr.byte2,
 		ih->daddr.byte3,
 		ih->daddr.byte4,
-		dport, sequenceNum, ackNum, ipDataLen, windowSize);
+		dport, sequenceNum, ackNum, ipDataLen, windowSize);*/
 	sprintf(cpDestIp, "%d.%d.%d.%d", ih->daddr.byte1, ih->daddr.byte2, ih->daddr.byte3, ih->daddr.byte4);
 	iCmp = strcmp(cpDestIp, cpAggregatorIP);
 	if (iCmp == 0)
@@ -337,21 +340,21 @@ void pnc_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 	unsigned __int64 now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 
 	//we got a valid packet lets parse the tcp header and get the start of the payload
-	printf("\toffsetShifted %u\t", offsetShifted);
-	printBits(sizeof(char), &offset);
+	//printf("\toffsetShifted %u\t", offsetShifted);
+	//printBits(sizeof(char), &offset);
 	uiPayloadLocation = 14 + ip_len + uiTcpHeaderSize;
-	printf("\tMAC: 14 IP Header is: %u TCP Header is: %u Total: %u\n", ip_len, uiTcpHeaderSize, (unsigned)uiPayloadLocation);
+	//printf("\tMAC: 14 IP Header is: %u TCP Header is: %u Total: %u\n", ip_len, uiTcpHeaderSize, (unsigned)uiPayloadLocation);
 	ucpPayload = (u_char*)&pkt_data[uiPayloadLocation];
 	if (iDestType == 1)// This may be a PUT READ to the agg
 	{
-		printf("\t%s:%d is a Aggregator message\n", cpDestIp, dport);
+		//printf("\t%s:%d is a Aggregator message\n", cpDestIp, dport);
 		AggregatorProcessor(now, ih, tcpH, ucpPayload, ipDataLen - uiPayloadLocation);
 	}
 	else {
 		if (ipDataLen <= uiPayloadLocation) {
 			return;
 		}
-		printf("\t%s:%d is a PNC message\n", cpDestIp, dport);
+		//printf("\t%s:%d is a PNC message\n", cpDestIp, dport);
 		PNCProcessor(now, ih, tcpH, ucpPayload, ipDataLen - uiPayloadLocation);
 	}
 }
@@ -435,14 +438,20 @@ void AggregatorProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* 
 	u_short dataLen)
 {
 	char* cp = (char *)ucpPayload;
-
+	/*if (dataLen > 256) {
+		char* cpLog = cp;
+		for (int i = 0; i < 40;i++) {
+			printf("%c ", cpLog[i]);
+		}
+		puts("");
+	}*/
 	char *cpUrl = strstr((char *)cp,"PUT /read/");
 	if (cpUrl == NULL) {
-		puts("\tAggregatorProcessor: could not find PUT /read/");
+		//puts("\tAggregatorProcessor: could not find PUT /read/");
 		return;
 	}
 	//crawl up to the begining of the id
-	for (int i = 0;i < 11;i++) {
+	for (int i = 0;i < 10;i++) {
 		cpUrl++;
 	}
 	// Get everything up to the " character
@@ -455,7 +464,7 @@ void AggregatorProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* 
 		cpTemp[cnt] = cpUrl[cnt];
 		cnt++;
 	} while (cnt < 126);
-	printf("\tAggregatorProcessor: the id: %s timeStamp: %lu\n",cpTemp,timeStamp);
+	//printf("\tAggregatorProcessor: the id: %s timeStamp: %lu\n",cpTemp,timeStamp);
 	ReadInfo theId(cpTemp, timeStamp);
 	aggMap.insert(std::make_pair<std::string, ReadInfo>(std::string(theId.getId()), ReadInfo(theId.getId(), theId.getTimeStamp())));
 
@@ -469,10 +478,10 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 
 	if (dataLen < 256)// this is probably a control message, not a true message
 	{
-		printf("\tPNCProcessor: data length is less then 256:%d\n", dataLen);
+		//printf("\tPNCProcessor: data length is less then 256:%d\n", dataLen);
 		return;
 	}
-	printf("\tPNCProcessor: going to process data with length:%d\n", dataLen);
+	//printf("\tPNCProcessor: going to process data with length:%d\n", dataLen);
 	
 	std::string* strp = new std::string();
 	AnalyzeWebSocketFrame* awf = new AnalyzeWebSocketFrame(ucpPayload,dataLen);
@@ -482,7 +491,7 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 	char* cpId = strstr((char *)strp->c_str(), "id=");
 	if (cpId == NULL)
 	{
-		puts("\tPNCProcessor: could not find id=");
+		//puts("\tPNCProcessor: could not find id=");
 		return;
 	}
 	//crawl up to the begining of the id
@@ -498,7 +507,7 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 		cpTemp[cnt] = cpId[cnt];
 		cnt++;
 	} while (cnt < 62);
-	printf("\tPNCProcessor: Id: %s Timestamp:%lu\n", cpTemp,timeStamp);
+	//printf("\tPNCProcessor: Id: %s Timestamp:%lu\n", cpTemp,timeStamp);
 	ReadInfo theId(cpTemp,timeStamp);
 	//this is to fake what would have been done by the AggregatorProcessor
 	//aggMap.insert(std::make_pair<std::string,ReadInfo>(std::string(theId.getId()),ReadInfo(theId.getId(),theId.getTimeStamp()-4)));
@@ -506,7 +515,7 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 	aggIt = aggMap.find(theId.getId());
 	if (aggIt != aggMap.end()) {
 		ReadInfo r = aggIt->second;
-		printf("\tPNCProcessor: the map found a match: %s\n", r.getId().c_str());
+		//printf("\tPNCProcessor: the map found a match: %s\n", r.getId().c_str());
 		PNCReporter(r, theId);
 		aggMap.erase(theId.getId());
 	}
@@ -521,7 +530,17 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 
 void PNCReporter(ReadInfo read, ReadInfo pnc)
 {
-	printf("TimeDifference is: %lu milliseconds\n", (unsigned long)pnc.getTimeStamp() - read.getTimeStamp());
+	if (iSampleCount < 1000) {
+		ullTotal = ullTotal + (pnc.getTimeStamp() - read.getTimeStamp());
+		iSampleCount++;
+	}
+	else {
+		unsigned long long ullAvg = ullTotal / iSampleCount;
+		iSampleCount = 0;
+		ullTotal = 0;
+		printf("TimeDifference avg over last 1000: %lu\n", (unsigned long)ullAvg);
+	}
+	//printf("TimeDifference is: %lu milliseconds\n", (unsigned long)pnc.getTimeStamp() - read.getTimeStamp());
 }
 
 
