@@ -21,6 +21,10 @@ public:
 	void ShowMe();
 	void AnalyzeFrame();
 	void AnalyzeFrame(std::string *strp);
+	void checkFinBit();
+	void checkOpCode();
+	void checkMask();
+	void checkPayloadLength();
 };
 
 class ReadInfo {

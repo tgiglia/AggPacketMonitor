@@ -105,7 +105,7 @@ void showPayloadData(u_char* ucp, int num);
 void AggregatorProcessor(unsigned __int64 timeStamp, ip_header *ih, tcp_header *tcpH, u_char* ucpPayload, 
 	u_short dataLen);
 void PNCProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* tcpH, u_char* ucpPayload,
-	u_short dataLen,u_short frameLength);
+	u_short dataLen,u_short frameLength, const u_char* pkt_data);
 void PNCReporter(ReadInfo read, ReadInfo pnc);
 void PNCReporter2(ReadInfo read, ReadInfo pnc);
 void writeBadPacket(std::string* strp,char* cp);
@@ -114,7 +114,7 @@ void writeMapSize(unsigned long ulBefore, unsigned long ulAfter);
 void writeAggInsert(ReadInfo ri);
 void writePncCheckError(u_short ipDataLen, u_int uiPayloadLocation, u_int ip_len, u_int uiTcpHeaderSize, unsigned int uiHeaderLen,
 	unsigned int uiCapLen,unsigned char c);
-void analyzeWebSocketFrame(const unsigned char pkt_data, int len);
+void analyzeWebSocketFrame(const unsigned char *pkt_data, int len);
 
 std::map<ReadInfo,int> readsMap;
 std::map<std::string, ReadInfo> aggMap;
@@ -148,7 +148,9 @@ WriteFrameToDisk* wftd;
 int main(array<System::String ^> ^args)
 {
 	std::cout << "AggPacketMonitor started!" << std::endl;
-	runNpcap();
+	analyzeWebSocketFrame((unsigned char *)ctrlMsg1,63);
+	analyzeWebSocketFrame((unsigned char *)ctrlMsg2, 54);
+	//runNpcap();
 	std::cout << "AggPacketMonitor terminating." << std::endl;
     return 0;
 }
@@ -416,19 +418,23 @@ void pnc_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 			ipDataLen = header->caplen;
 		}
 		writePncCheckError(ipDataLen, uiPayloadLocation, ip_len, uiTcpHeaderSize, header->len, header->caplen, ucpPayload[0]);
-		PNCProcessor(now, ih, tcpH, ucpPayload, ipDataLen - uiPayloadLocation,ipDataLen);
+		PNCProcessor(now, ih, tcpH, ucpPayload, ipDataLen - uiPayloadLocation,ipDataLen,pkt_data);
 	}
 }
 
-void analyzeWebSocketFrame(const unsigned char pkt_data, int len) {
+void analyzeWebSocketFrame(const unsigned char *pkt_data, int len) {
 	ip_header* ih;
 	tcp_header* tcpH;
 	u_int ip_len;
+	u_int uiPayloadLocation;
 	u_short sport, dport;
 	u_short ipDataLen;
 	unsigned int sequenceNum;
 	unsigned int ackNum;
 	u_short windowSize;
+	u_char* leftOffSet;
+	u_char offsetShifted, ucOffset;
+	u_int uiTcpHeaderSize;
 
 	/* retrieve the position of the ip header */
 	ih = (ip_header*)(pkt_data +
@@ -442,7 +448,14 @@ void analyzeWebSocketFrame(const unsigned char pkt_data, int len) {
 	windowSize = ntohs(tcpH->window_size);
 	sequenceNum = ntohl(tcpH->sequence_number);
 	ackNum = ntohl(tcpH->ack_number);
-	printf("%d.%d.%d.%d.%d -> %d.%d.%d.%d.%d sequence: %u ack: %u ip len: %u window size: %u\n",
+	leftOffSet = (u_char*)&tcpH->offset_res_control;
+	ucOffset = *leftOffSet;
+	offsetShifted = ucOffset >> 4; //shift right to move the bits where care about to the begining.
+	uiTcpHeaderSize = offsetShifted * 4;
+	ipDataLen = ntohs(ih->tlen);
+	uiPayloadLocation = 14 + ip_len + uiTcpHeaderSize;
+
+	printf("%d.%d.%d.%d.%d -> %d.%d.%d.%d.%d sequence: %u ack: %u Pos TCP Header: %u window size: %u\n",
 		ih->saddr.byte1,
 		ih->saddr.byte2,
 		ih->saddr.byte3,
@@ -452,7 +465,21 @@ void analyzeWebSocketFrame(const unsigned char pkt_data, int len) {
 		ih->daddr.byte2,
 		ih->daddr.byte3,
 		ih->daddr.byte4,
-		dport, sequenceNum, ackNum, ipDataLen, windowSize);
+		dport, sequenceNum, ackNum, ip_len, windowSize);
+	printf("uiTcpHeaderSize is: %u Total Length (Eth Header+ TCP Header + Data): %u Payload Location: %u\n", uiTcpHeaderSize,ipDataLen+14,uiPayloadLocation);
+	if ((ipDataLen + 14) > uiPayloadLocation) {//There is a WS payload
+		std::string* strp = new std::string();
+		AnalyzeWebSocketFrame* awf = new AnalyzeWebSocketFrame((unsigned char *)&pkt_data[uiPayloadLocation], len - uiPayloadLocation);
+		awf->checkFinBit();
+		awf->checkOpCode();
+		awf->AnalyzeFrame(strp);
+		awf->checkMask();
+		awf->checkPayloadLength();
+
+		delete strp;
+		delete awf;
+	}
+	std::cout << std::endl << std::endl;
 
 }
 
@@ -570,14 +597,14 @@ void AggregatorProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* 
 
 
 void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH, u_char* ucpPayload,
-	u_short dataLen, u_short frameLength)
+	u_short dataLen, u_short frameLength, const u_char* pkt_data)
 {
 	
 	
 	if (dataLen <= 54)// this is probably a control message, not a true message
 	{
 		//printf("\tPNCProcessor: data length is less then 256:%d\n", dataLen);
-		wftd->saveFrameToDisk(frameLength, ucpPayload,"ctrlMsg");
+		wftd->saveFrameToDisk(frameLength, pkt_data,"ctrlMsg");
 		return;
 	}
 	//printf("\tPNCProcessor: going to process data with length:%d\n", dataLen);
@@ -594,7 +621,7 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 	if (cpId == NULL)
 	{
 		//puts("\tPNCProcessor: could not find id=");
-		wftd->saveFrameToDisk(frameLength, ucpPayload,"noFindId");
+		wftd->saveFrameToDisk(frameLength, pkt_data,"noFindId");
 		writeBadPacket(strp, "PNCProcessor: could not find 'id='");
 		return;
 	}
@@ -624,7 +651,7 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 		
 	}
 	else {
-		wftd->saveFrameToDisk(frameLength, ucpPayload, "noMatchId");
+		wftd->saveFrameToDisk(frameLength, pkt_data, "noMatchId");
 		printf("\tPNCProcessor: the map DID NOT find a match for %s\n",theId.getId().c_str());
 		writeBadPacket(strp,cpTemp);
 	}

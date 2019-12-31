@@ -6,6 +6,7 @@
 #include<bitset>
 
 #include "BitMasking.h"
+#include "WSFirstByteDecoder.h"
 using namespace std;
 
 AnalyzeWebSocketFrame::AnalyzeWebSocketFrame(unsigned char* f, int len) {
@@ -22,10 +23,64 @@ void AnalyzeWebSocketFrame::ShowMe() {
 
 	cout << "In Show using cout\n";
 	for (int i = 0;i < fLen;i++) {
-		printf("idx: %d val:0x%x\n", i, frame[i]);
+		printf("idx: %d val:0x%x\t%c\n", i, frame[i],frame[i]);
 	}
 }
 
+
+void AnalyzeWebSocketFrame::checkFinBit() {
+	BYTE b = (BYTE)frame[0];
+
+	WSFirstByteDecoder wsfbd(b);
+	if (wsfbd.finalFragment()) {
+		std::cout << "This is the final fragment in the message." << std::endl;
+	}
+	else {
+		std::cout << "This is not the final fragment in the message." << std::endl;
+	}
+
+}
+
+void AnalyzeWebSocketFrame::checkOpCode() {
+	BYTE b = (BYTE)frame[0];
+	std::string s;
+	WSFirstByteDecoder wsfbd(b);
+	wsfbd.getOpCode(s);
+	cout <<"This is a: "<< s << endl;
+}
+
+void AnalyzeWebSocketFrame::checkMask() {
+	BYTE  byteTwo = frame[1];
+	CBitMasking mask(byteTwo);
+	if (mask.CheckBit(CBitMasking::Bit8)) {
+		std::cout << "Mask bit is SET." << std::endl;
+	}
+	else {
+		std::cout << "Mask bit is NOT SET." << std::endl;
+	}
+}
+
+void AnalyzeWebSocketFrame::checkPayloadLength() {
+	BYTE  byteTwo = frame[1];
+	CBitMasking mask(byteTwo);
+	//Mask off bit 8 and check the remaining value
+	mask.ClearBit(CBitMasking::Bit8);
+	BYTE cleared8 = mask.rtMask();
+	if (cleared8 < 126) {
+		printf("Payload Size is: %d\n", cleared8);
+	}
+	else if (cleared8 == 126) {
+		//Move the next two bytes into a 16 bit unsigned integer
+		int payloadSize = frame[3] | frame[2] << 8;
+		printf("Payload Size: %d\n", payloadSize);
+	}
+	else if(cleared8 == 127) {
+		unsigned char ucpPayloadSize[8] = { frame[3], frame[2],frame[5],frame[4],frame[7],frame[6],frame[9],frame[8] };
+		unsigned long long payloadSize;
+		memcpy(&payloadSize, ucpPayloadSize, sizeof(unsigned long long));
+		printf("Payload Size: %d\n", payloadSize);
+	}
+}
 
 void AnalyzeWebSocketFrame::AnalyzeFrame(std::string *strp)
 {
