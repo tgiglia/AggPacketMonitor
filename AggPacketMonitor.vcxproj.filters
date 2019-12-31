@@ -35,6 +35,15 @@
     <ClInclude Include="concurrent_queue.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="WSFirstByteDecoder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="WriteFrameToDisk.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Frames.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AggPacketMonitor.cpp">
@@ -50,6 +59,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="AnalyzeWebSocketFrame.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WSFirstByteOrder.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="WriteFrameToDisk.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

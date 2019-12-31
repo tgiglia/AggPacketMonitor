@@ -172,9 +172,7 @@ const char *AnalyzeWebSocketFrame::DecodePayload(unsigned char* ucpMask, unsigne
 		str.push_back(theChar);
 	}
 	cout << "AnalyzeWebSocketFrame::DecodePayload: unmasked payload: " << str << endl;
-	/*cpPayload = new char(strlen(str.c_str()));
-	const char* cp = str.c_str();
-	strcpy(cpPayload, cp);*/
+	
 	return NULL;
 }
 
