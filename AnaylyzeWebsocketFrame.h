@@ -9,9 +9,15 @@ protected:
 	
 	unsigned char* frame=NULL;
 	int fLen=0;
+	int iFrameType;
 	bool isMaskSet = false;
-	//char *cpPayload=NULL;
+	BYTE btMaskStart;
+	BYTE btPayloadStart;
+	unsigned long long ullPayloadSize;
+	unsigned char* ucpMaskStart;
+	unsigned char* ucpPayloadStart;
 
+	void showMaskingKeys();
 	const char *DecodePayload(unsigned char* ucpMask, unsigned char* ucpPayload, int iLen);
 	void DecodePayload(unsigned char* ucpMask, unsigned char* ucpPayload, int iLen,std::string *strp);
 
@@ -25,6 +31,8 @@ public:
 	void checkOpCode();
 	void checkMask();
 	void checkPayloadLength();
+	void checkMaskingKeys();
+	void showDecodedPayload();
 };
 
 class ReadInfo {

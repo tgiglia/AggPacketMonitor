@@ -9,13 +9,15 @@
 #include "WSFirstByteDecoder.h"
 using namespace std;
 
-AnalyzeWebSocketFrame::AnalyzeWebSocketFrame(unsigned char* f, int len) {
-	//cout << "AnalyzeWebSocketFrame::AnalyzeWebSocketFrame: len = " << len << " fLen=" << fLen << endl;
-	//frame = new unsigned char(len+2);
+AnalyzeWebSocketFrame::AnalyzeWebSocketFrame(unsigned char* f, int len) {	
 	frame = f;
 	fLen = len;
-	//cout << "AnalyzeWebSocketFrame::AnalyzeWebSocketFrame: After assignment len = " << len << " fLen=" << fLen << endl;
-	
+	iFrameType = 0;
+	btMaskStart = 0;
+	btPayloadStart = 0;
+	ucpMaskStart = NULL;
+	ucpPayloadStart = NULL;
+	ullPayloadSize = 0;
 }
 void AnalyzeWebSocketFrame::ShowMe() {
 	printf("In Show, fLen = %d\n", fLen);
@@ -54,9 +56,11 @@ void AnalyzeWebSocketFrame::checkMask() {
 	CBitMasking mask(byteTwo);
 	if (mask.CheckBit(CBitMasking::Bit8)) {
 		std::cout << "Mask bit is SET." << std::endl;
+		isMaskSet = true;
 	}
 	else {
 		std::cout << "Mask bit is NOT SET." << std::endl;
+		isMaskSet = false;
 	}
 }
 
@@ -68,18 +72,71 @@ void AnalyzeWebSocketFrame::checkPayloadLength() {
 	BYTE cleared8 = mask.rtMask();
 	if (cleared8 < 126) {
 		printf("Payload Size is: %d\n", cleared8);
+		ullPayloadSize = cleared8;
+		iFrameType = 1;
 	}
 	else if (cleared8 == 126) {
 		//Move the next two bytes into a 16 bit unsigned integer
-		int payloadSize = frame[3] | frame[2] << 8;
-		printf("Payload Size: %d\n", payloadSize);
+		int iPayloadSize = frame[3] | frame[2] << 8;
+		printf("Payload Size: %d\n", iPayloadSize);
+		ullPayloadSize = iPayloadSize;
+		iFrameType = 2;
 	}
 	else if(cleared8 == 127) {
-		unsigned char ucpPayloadSize[8] = { frame[3], frame[2],frame[5],frame[4],frame[7],frame[6],frame[9],frame[8] };
-		unsigned long long payloadSize;
-		memcpy(&payloadSize, ucpPayloadSize, sizeof(unsigned long long));
-		printf("Payload Size: %d\n", payloadSize);
+		unsigned char ucpPayloadSize[8] = { frame[3], frame[2],frame[5],frame[4],frame[7],frame[6],frame[9],frame[8] };		
+		memcpy(&ullPayloadSize, ucpPayloadSize, sizeof(unsigned long long));
+		std::cout << "Payload Size: " << ullPayloadSize << std::endl;
+		iFrameType = 3;
 	}
+}
+
+
+void AnalyzeWebSocketFrame::checkMaskingKeys() {
+	if (!isMaskSet) {
+		std::cout << "Mask bit is not set for this frame." << std::endl;
+		return;
+	}
+	//Set the masking key start location based on the payload frames
+	if (iFrameType == 0) {//checkPayloadLength() was not called so call it now
+		checkPayloadLength();
+	}
+	switch (iFrameType) {
+	case 1:
+		btMaskStart = 2;
+		btPayloadStart = 6;
+		break;
+	case 2:
+		btMaskStart = 4;
+		btPayloadStart = 8;
+		break;
+	case 3:
+		btMaskStart = 10;
+		btPayloadStart = 14;
+		break;
+	default: std::cout << "ERROR could not determine Mask and Payload start indexs." << std::endl;
+		return;
+	}
+	ucpMaskStart = &frame[btMaskStart];
+	ucpPayloadStart = &frame[btPayloadStart];
+	showMaskingKeys();
+}
+
+void AnalyzeWebSocketFrame::showMaskingKeys() {
+	printf("MASKING KEYS: ");
+	for (int i = 0;i < 4;i++) {
+		printf("0x%x ", ucpMaskStart[i]);
+	}
+	puts("");
+}
+
+void AnalyzeWebSocketFrame::showDecodedPayload() {
+	std::cout << "THE PAYLOAD: " << std::endl;
+	for (int i = 0;i < ullPayloadSize;i++) {
+		unsigned char key = ucpMaskStart[i % 4];
+		unsigned char theChar = ucpPayloadStart[i] ^ key;
+		printf("%d Key: 0x%x Masked: 0x%x Unmasked: %c\n", i,key, ucpPayloadStart[i], theChar);
+	}
+	std::cout << std::endl;
 }
 
 void AnalyzeWebSocketFrame::AnalyzeFrame(std::string *strp)
@@ -230,6 +287,7 @@ const char *AnalyzeWebSocketFrame::DecodePayload(unsigned char* ucpMask, unsigne
 	
 	return NULL;
 }
+
 
 void AnalyzeWebSocketFrame::DecodePayload(unsigned char* ucpMask, unsigned char* ucpPayload, int iLen, std::string *strp)
 {

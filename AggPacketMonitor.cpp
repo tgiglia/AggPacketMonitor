@@ -475,7 +475,8 @@ void analyzeWebSocketFrame(const unsigned char *pkt_data, int len) {
 		awf->AnalyzeFrame(strp);
 		awf->checkMask();
 		awf->checkPayloadLength();
-
+		awf->checkMaskingKeys();
+		awf->showDecodedPayload();
 		delete strp;
 		delete awf;
 	}

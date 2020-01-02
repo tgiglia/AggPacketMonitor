@@ -10,48 +10,48 @@ C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt\stdio.h(1274): 
 C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(378,1): warning C4996: 'sprintf': This function or variable may be unsafe. Consider using sprintf_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
 C:\Program Files (x86)\Windows Kits\10\Include\10.0.18362.0\ucrt\stdio.h(1774): message : see declaration of 'sprintf'
 C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(470,23): warning C4018: '>': signed/unsigned mismatch
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(615,24): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(671,40): warning C4267: 'initializing': conversion from 'size_t' to 'unsigned long', possible loss of data
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(672,40): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(676,39): warning C4267: 'initializing': conversion from 'size_t' to 'unsigned long', possible loss of data
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 6 has type 'unsigned __int64'
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%llu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%Iu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%I64u' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 7 has type 'unsigned __int64'
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%llu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%Iu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%I64u' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 8 has type 'unsigned __int64'
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%llu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%Iu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%I64u' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 9 has type 'unsigned __int64'
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%llu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%Iu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(697,41): message : consider using '%I64u' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(726,41): warning C4267: 'initializing': conversion from 'size_t' to 'unsigned long', possible loss of data
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(727,41): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(731,40): warning C4267: 'initializing': conversion from 'size_t' to 'unsigned long', possible loss of data
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 6 has type 'unsigned __int64'
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%llu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%Iu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%I64u' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 7 has type 'unsigned __int64'
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%llu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%Iu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%I64u' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 8 has type 'unsigned __int64'
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%llu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%Iu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%I64u' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 9 has type 'unsigned __int64'
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%llu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%Iu' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(755,41): message : consider using '%I64u' in the format string
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(759,45): warning C4267: 'initializing': conversion from 'size_t' to 'unsigned long', possible loss of data
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(761,41): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
-C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(800,19): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(616,24): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(672,40): warning C4267: 'initializing': conversion from 'size_t' to 'unsigned long', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(673,40): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(677,39): warning C4267: 'initializing': conversion from 'size_t' to 'unsigned long', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 6 has type 'unsigned __int64'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%llu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%Iu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%I64u' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 7 has type 'unsigned __int64'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%llu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%Iu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%I64u' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 8 has type 'unsigned __int64'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%llu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%Iu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%I64u' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 9 has type 'unsigned __int64'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%llu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%Iu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(698,41): message : consider using '%I64u' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(727,41): warning C4267: 'initializing': conversion from 'size_t' to 'unsigned long', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(728,41): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(732,40): warning C4267: 'initializing': conversion from 'size_t' to 'unsigned long', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 6 has type 'unsigned __int64'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%llu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%Iu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%I64u' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 7 has type 'unsigned __int64'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%llu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%Iu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%I64u' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 8 has type 'unsigned __int64'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%llu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%Iu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%I64u' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): warning C4477: 'sprintf_s' : format string '%lu' requires an argument of type 'unsigned long', but variadic argument 9 has type 'unsigned __int64'
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%llu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%Iu' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(756,41): message : consider using '%I64u' in the format string
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(760,45): warning C4267: 'initializing': conversion from 'size_t' to 'unsigned long', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(762,41): warning C4267: 'initializing': conversion from 'size_t' to 'int', possible loss of data
+C:\Users\tom.giglia\source\repos\AggPacketMonitor\AggPacketMonitor\AggPacketMonitor.cpp(801,19): warning C4267: '=': conversion from 'size_t' to 'int', possible loss of data
   AggPacketMonitor.obj : MSIL module encountered; incremental linking is disabled for MSIL; performing full link
 AggPacketMonitor.obj : warning LNK4248: unresolved typeref token (0100001A) for 'pcap'; image may not run
   AggPacketMonitor.vcxproj -> C:\Users\tom.giglia\source\repos\AggPacketMonitor\x64\Debug\AggPacketMonitor.exe
