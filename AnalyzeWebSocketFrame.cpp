@@ -134,9 +134,10 @@ void AnalyzeWebSocketFrame::showDecodedPayload() {
 	for (int i = 0;i < ullPayloadSize;i++) {
 		unsigned char key = ucpMaskStart[i % 4];
 		unsigned char theChar = ucpPayloadStart[i] ^ key;
-		printf("%d Key: 0x%x Masked: 0x%x Unmasked: %c\n", i,key, ucpPayloadStart[i], theChar);
+		std::cout << theChar << " ";
 	}
 	std::cout << std::endl;
+	
 }
 
 void AnalyzeWebSocketFrame::AnalyzeFrame(std::string *strp)
@@ -199,6 +200,9 @@ void AnalyzeWebSocketFrame::AnalyzeFrame(std::string *strp)
 		unsigned long long payloadSize;
 		memcpy(&payloadSize, ucpPayloadSize, sizeof(unsigned long long));
 		//cout << "payloadSize = " << payloadSize << endl;
+		if (payloadSize > fLen) {
+			payloadSize = fLen;
+		}
 		unsigned char* ucpMask = &frame[iMaskStart];
 		unsigned char* ucpPayload = &frame[iPayloadStart];
 		DecodePayload(ucpMask, ucpPayload, payloadSize,strp);
@@ -265,7 +269,8 @@ void AnalyzeWebSocketFrame::AnalyzeFrame() {
 		//You get the payload size from the 2,3,4,5,6,7,8,9
 		unsigned char ucpPayloadSize[8] = { frame[3], frame[2],frame[5],frame[4],frame[7],frame[6],frame[9],frame[8] };
 		unsigned long long payloadSize;
-		memcpy(&payloadSize, ucpPayloadSize, sizeof(unsigned long long));
+		//memcpy(&payloadSize, ucpPayloadSize, sizeof(unsigned long long));
+		int iPayloadSize = fLen - iPayloadStart;
 		//cout << "payloadSize = " << payloadSize << endl;
 		unsigned char* ucpMask = &frame[iMaskStart];
 		unsigned char* ucpPayload = &frame[iPayloadStart];
@@ -297,5 +302,4 @@ void AnalyzeWebSocketFrame::DecodePayload(unsigned char* ucpMask, unsigned char*
 		//printf("%d Key: 0x%x Masked: 0x%x Unmasked: %c\n", i,key, ucpPayload[i], theChar);
 		strp->push_back(theChar);
 	}
-	//cout << "AnalyzeWebSocketFrame::DecodePayload: unmasked payload: " << *strp << endl;
 }

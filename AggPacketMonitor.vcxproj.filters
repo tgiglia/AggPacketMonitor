@@ -44,6 +44,21 @@
     <ClInclude Include="Frames.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="TcpFrameInspector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TrackGarbledMessages.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="ReportRec.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="AnalyzeWebSocketFrameVector.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PcapFrame.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AggPacketMonitor.cpp">
@@ -65,6 +80,21 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="WriteFrameToDisk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TcpFrameInspector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="TrackGarbledMessage.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MTReportRecMap.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="AnalyzeWebSocketFrameVector.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PcapFrame.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
