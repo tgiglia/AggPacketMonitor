@@ -118,6 +118,9 @@
       <AdditionalLibraryDirectories>C:\Users\tom.giglia\source\repos\npcap-sdk-1.04\Lib\x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <DelayLoadDLLs>wpcap.dll</DelayLoadDLLs>
     </Link>
+    <PostBuildEvent>
+      <Command>copy app.config "$(TargetPath).config"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -149,6 +152,7 @@
   <ItemGroup>
     <ClInclude Include="AnalyzeWebSocketFrameVector.h" />
     <ClInclude Include="AnaylyzeWebsocketFrame.h" />
+    <ClInclude Include="APMConfig.h" />
     <ClInclude Include="BitMasking.h" />
     <ClInclude Include="concurrent_queue.h" />
     <ClInclude Include="Frames.h" />
@@ -165,6 +169,7 @@
     <ClCompile Include="AggPacketMonitor.cpp" />
     <ClCompile Include="AnalyzeWebSocketFrame.cpp" />
     <ClCompile Include="AnalyzeWebSocketFrameVector.cpp" />
+    <ClCompile Include="APMConfig.cpp" />
     <ClCompile Include="AssemblyInfo.cpp" />
     <ClCompile Include="CBitMasking.cpp" />
     <ClCompile Include="MTReportRecMap.cpp" />
@@ -185,8 +190,12 @@
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="App.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

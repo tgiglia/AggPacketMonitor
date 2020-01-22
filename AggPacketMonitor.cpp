@@ -15,7 +15,7 @@
 #include "PcapFrame.h"
 #include "TrackGarbledMessages.h"
 #include "ReportRec.h"
-
+#include "APMConfig.h"
 int runNpcap();
 
 using namespace System;
@@ -117,9 +117,19 @@ WriteFrameToDisk* wftd;
 TrackGarbledMessages* tgmp;
 
 
+
 int main(array<System::String ^> ^args)
 {
-	std::cout << "AggPacketMonitor started!" << std::endl;
+	//std::cout << "AggPacketMonitor started!" << std::endl;
+	APMConfig* pConfig = pConfig->getInstance();
+	if (pConfig->loadConfig()) {
+		pConfig->showConfig();
+	}
+	else {
+		std::cout << "ERROR Could Not Load Configuration. Exiting." << std::endl;
+		return 0;
+	}
+
 	tgmp = new TrackGarbledMessages(.50);
 	pAggRecMap = new MTReportRecMap();
 	ullNoId = 0;
@@ -131,9 +141,10 @@ int main(array<System::String ^> ^args)
 	ullAddedElements = 0;
 	ullNoMatchId = 0;
 	ullNoFindPutRead = 0;
-	if (SetConsoleCtrlHandler(CtrlHandler, TRUE))
+	if (!SetConsoleCtrlHandler(CtrlHandler, TRUE))
 	{
-		std::cout << "Control Handler Installed!" << std::endl;
+		std::cout << "ERROR, could not install Control Handler." << std::endl;
+		return 0;
 	}
 	//analyzeWebSocketFrame((unsigned char *)ctrlMsg1,60);
 	//analyzeWebSocketFrame((unsigned char *)ctrlMsg2, 60);
@@ -170,9 +181,11 @@ int runNpcap()
 	//char packet_filter[] = "ip and tcp and host 10.24.2.3 and dst port 8099";
 	struct bpf_program fcode;
 	unsigned short us = 5;
-	
-	strcpy(cpAggregatorIP, "10.24.2.3");
-	strcpy(cpPNCIP, "10.24.2.181");
+	APMConfig* pConfig = pConfig->getInstance();
+	strcpy(cpAggregatorIP, pConfig->rtAggregatorIP().c_str());
+	strcpy(cpPNCIP, pConfig->rtPNCIP().c_str());
+	//strcpy(cpAggregatorIP, "10.24.2.3");
+	//strcpy(cpPNCIP, "10.24.2.181");
 
 	
 	wftd = new WriteFrameToDisk("Frames.h");
@@ -280,9 +293,9 @@ int runNpcap()
 
 
 	//compile the filter
-	printf("packet_filter = %s", packet_filter);
-
-	if (pcap_compile(adhandle, &fcode, packet_filter, 1, netmask) < 0)
+	//printf("packet_filter = %s", packet_filter);
+	printf("packet filter: %s\n", pConfig->rtPacketFilter().c_str());
+	if (pcap_compile(adhandle, &fcode, pConfig->rtPacketFilter().c_str(), 1, netmask) < 0)
 	{
 		fprintf(stderr, "\nUnable to compile the packet filter. Check the syntax.\n");
 		/* Free the device list */
