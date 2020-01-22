@@ -72,6 +72,7 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType);
 DWORD WINAPI PacketConsumer(LPVOID lpParam);
 void packet_consumer_vector(PCapFrameVector& pcfv);
 void WSProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation);
+void AggregatorProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp);
 	
 
 
@@ -100,7 +101,8 @@ unsigned long long ullNoDecode;
 unsigned long long ullWSCntrl;
 unsigned long long ullAddFail;
 unsigned long long ullAddedElements;
-
+unsigned long long ullNoMatchId;
+unsigned long long ullNoFindPutRead;
 int iLowTargetCnt = 0;
 int iMidTargetCnt = 0;
 int iHighTargetCnt = 0;
@@ -127,7 +129,8 @@ int main(array<System::String ^> ^args)
 	ullWSCntrl = 0;
 	ullAddFail = 0;
 	ullAddedElements = 0;
-
+	ullNoMatchId = 0;
+	ullNoFindPutRead = 0;
 	if (SetConsoleCtrlHandler(CtrlHandler, TRUE))
 	{
 		std::cout << "Control Handler Installed!" << std::endl;
@@ -249,7 +252,7 @@ int runNpcap()
 		65536,			// portion of the packet to capture. 
 					   // 65536 grants that the whole packet will be captured on all the MACs.
 		1,				// promiscuous mode (nonzero means promiscuous)
-		1000,			// read timeout
+		100,			// read timeout
 		errbuf			// error buffer
 	)) == NULL)
 	{
@@ -302,7 +305,7 @@ int runNpcap()
 	pcap_freealldevs(alldevs);
 
 	/* start the capture */
-	pcap_loop(adhandle, 0, pnc_packet_handler, NULL);
+	pcap_loop(adhandle, 0, packet_producer, NULL);
 
 	delete outf;
 	delete errorf;
@@ -385,13 +388,13 @@ void packet_consumer_vector(PCapFrameVector& pcfv) {
 	//std::cout << "packet_consumer_vector: payload location is: " << uiPayloadLocation << std::endl;
 	if (iDestType == 1)// This may be a PUT READ to the agg
 	{
-
-		AggregatorProcessor(now, ih, tcpH, ucpPayload, tcpInspector.rtIpDataLen() - uiPayloadLocation);
+		AggregatorProcessorVector(pcfv, uiPayloadLocation, now);
+		//AggregatorProcessor(now, ih, tcpH, ucpPayload, tcpInspector.rtIpDataLen() - uiPayloadLocation);
 	}
 	else {
 		WSProcessorVector(pcfv, uiPayloadLocation);
 	}
-
+	delete[]ucp;
 	
 }
 
@@ -482,9 +485,52 @@ void pnc_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 }
 
 
+void AggregatorProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp) {
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message
+		ullCntrl++;
+		return;
+	}
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	unsigned char* ucpPayload = &ucp[uiPayloadLocation];
+	char* cpUrl = strstr((char*)ucpPayload,"PUT /read/");
+	if (cpUrl == NULL) {
+		//puts("\tAggregatorProcessor: could not find PUT /read/");
+		writeBadAggPacket((char *)ucpPayload, pv->size() - uiPayloadLocation);
+		ullNoFindPutRead++;
+		return;
+	}
+	//crawl up to the begining of the id
+	for (int i = 0;i < 10;i++) {
+		cpUrl++;
+	}
+	// Get everything up to the " character
+	char cpTemp[128];
+	memset(&cpTemp, 0, 128);
+	int cnt = 0;
+	do {
+		if (cpUrl[cnt] == ' ')
+			break;
+		cpTemp[cnt] = cpUrl[cnt];
+		cnt++;
+	} while (cnt < 126);
+	//printf("\tAggregatorProcessor: the id: %s timeStamp: %lu\n",cpTemp,timeStamp);
+	ReadInfo theId(cpTemp, timeStamp);
+	bool bIns = pAggRecMap->insertRec(theId);
+	if (bIns) {
+		ullReadCnt++;
+	}
+	else {
+		ullReadInsertFail++;
+	}
+	delete []ucp;
+}
+
 void WSProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
 	std::vector<unsigned char>* pv = pcfv.rtPktData();
-
+	
 	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message, not a WS message
 		ullCntrl++;
 		return;
@@ -533,6 +579,7 @@ void WSProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
 		//wftd->saveFrameToDisk(frameLength, pkt_data, "Msg");
 	}
 	else {
+		ullNoMatchId++;
 		//wftd->saveFrameToDisk(frameLength, pkt_data, "noMatchId");
 			//printf("\tPNCProcessor: the map DID NOT find a match for %s\n",theId.getId().c_str());
 		writeBadPacket(strp, cpTemp);
@@ -661,6 +708,7 @@ void AggregatorProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* 
 	if (cpUrl == NULL) {
 		//puts("\tAggregatorProcessor: could not find PUT /read/");
 		//writeBadAggPacket(cp, dataLen);
+		ullNoFindPutRead++;
 		return;
 	}
 	//crawl up to the begining of the id
@@ -710,6 +758,10 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 		ullCntrl++;
 		return;
 	}
+	if (dataLen <= 63) {//this is proabably a WS control message
+		ullWSCntrl++;
+		return;
+	}
 	//printf("\tPNCProcessor: going to process data with length:%d\n", dataLen);
 	
 	std::string* strp = new std::string();
@@ -729,7 +781,7 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 		//wftd->saveFrameToDisk(frameLength, pkt_data,"noFindId");
 		//writeBadPacket(strp, "PNCProcessor: could not find 'id='");
 		ullNoId++;
-		tgmp->isMessageGarbled(*strp);
+		//tgmp->isMessageGarbled(*strp);
 		return;
 	}
 	//crawl up to the begining of the id
@@ -758,6 +810,7 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 	else {
 		//wftd->saveFrameToDisk(frameLength, pkt_data, "noMatchId");
 			//printf("\tPNCProcessor: the map DID NOT find a match for %s\n",theId.getId().c_str());
+		ullNoMatchId++;
 		writeBadPacket(strp, cpTemp);
 	}
 	/*
@@ -959,7 +1012,6 @@ void writeBadPacket(std::string* strp,char *cp) {
 	*errorf << "cp=" << cp << std::endl;
 	*errorf << *strp << std::endl;
 	*errorf << "*****************" << std::endl;
-	
 	errorf->flush();
 }
 
@@ -972,10 +1024,10 @@ void writeBadAggPacket(char *cp,int dataLen) {
 	if (dataLen > 40) {
 		char* cpLog = cp;
 		for (int i = 0; i < dataLen;i++) {
-			*aggErrorf << cpLog[i] << " ";
+			*aggErrorf << cpLog[i];
 			
 		}
-		*aggErrorf << "****" << std::endl;
+		*aggErrorf<<std::endl << "****************************************************************" << std::endl;
 		*aggErrorf << std::endl << std::endl;
 		aggErrorf->flush();
 		
@@ -1020,6 +1072,8 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType) {
 		std::cout << "Number of Control Messages: " << ullCntrl << std::endl;
 		std::cout << "Number of failed decode: " << ullNoDecode << std::endl;
 		std::cout << "Number of messages with no ID: " << ullNoId << std::endl;
+		std::cout << "Number of WS messages we could not match to READ: " << ullNoMatchId << std::endl;
+		std::cout << "Number of incoming messages with no PUT READ: " << ullNoFindPutRead << std::endl;
 		exit(1);
 		break;
 	case CTRL_CLOSE_EVENT:
