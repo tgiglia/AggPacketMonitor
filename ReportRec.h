@@ -25,6 +25,7 @@ public:
 	bool insertRec(ReadInfo& ri);
 	bool isThere(std::string id, unsigned __int64& timestamp);
 	bool erase(std::string id);
+	bool saveMapToDisk(std::ofstream* outfile);
 	unsigned long long getSize();
 };
 

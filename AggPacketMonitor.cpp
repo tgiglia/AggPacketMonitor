@@ -61,6 +61,7 @@ void PNCProcessor(unsigned __int64 timeStamp, ip_header* ih, tcp_header* tcpH, u
 	u_short dataLen,u_short frameLength, const u_char* pkt_data);
 void PNCReporter(ReadInfo read, ReadInfo pnc);
 void PNCReporter2(ReadInfo read, ReadInfo pnc, TrackGarbledMessages& tgm);
+void AlarmReporter(ReadInfo read, ReadInfo pnc, TrackGarbledMessages& tgm);
 void writeBadPacket(std::string* strp,char* cp);
 void writeBadAggPacket(char* cp, int dataLen);
 void writeMapSize(unsigned long ulBefore, unsigned long ulAfter);
@@ -71,9 +72,12 @@ void analyzeWebSocketFrame(const unsigned char *pkt_data, int len);
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType);
 DWORD WINAPI PacketConsumer(LPVOID lpParam);
 void packet_consumer_vector(PCapFrameVector& pcfv);
+void packet_consumer_readalarm(PCapFrameVector& pcfv);
 void WSProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation);
 void AggregatorProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp);
-	
+void RESTAlarmProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp);
+
+
 
 
 
@@ -84,17 +88,20 @@ MTPcapFrameVectorQueue* pframeQueueVector;
 
 char cpAggregatorIP[64];
 char cpPNCIP[64];
-u_short usAggPort = 8099;
+u_short usAggPort = 80;
 u_short usPncPort = 8100;
 //concurrent_queue<reportRec>* reportQueue;
 unsigned long long ullTotal = 0;
 unsigned long long ullLowTarget = 1500;
 unsigned long long ullMidTarget = 2250;
 unsigned long long ullHighTarget = 3750;
+unsigned long long ullAlrmLowTarget = 2000;
+unsigned long long ullAlrmMidTarget = 3000;
+unsigned long long ullAlrmHighTarget = 5000;
 unsigned long long ullReadCnt = 0;
 unsigned long long ullReadInsertFail = 0;
 unsigned long long ullPNCCnt = 0;
-
+unsigned long long ullAlarmCnt = 0;
 unsigned long long ullNoId;
 unsigned long long ullCntrl;
 unsigned long long ullNoDecode;
@@ -106,12 +113,16 @@ unsigned long long ullNoFindPutRead;
 int iLowTargetCnt = 0;
 int iMidTargetCnt = 0;
 int iHighTargetCnt = 0;
+int iAlrmLowTargetCnt = 0;
+int iAlrmMidTargetCnt = 0;
+int iAlrmHighTargetCnt = 0;
 int iSampleCount;
 
 std::ofstream* outf;
 std::ofstream* errorf;
 std::ofstream* aggErrorf;
 std::ofstream* pncErrorf;
+std::ofstream* queueContents;
 
 WriteFrameToDisk* wftd;
 TrackGarbledMessages* tgmp;
@@ -177,7 +188,7 @@ int runNpcap()
 	pcap_t* adhandle;
 	u_int netmask;
 	//char packet_filter[] = "ip and tcp and host 10.24.2.3 and dst port 8099";
-	char packet_filter[] = "ip and tcp and host 10.24.2.3 and \(dst port 8099 or dst port 8100\)"; 
+	//char packet_filter[] = "ip and tcp and host 10.24.2.3 and \(dst port 8099 or dst port 8100\)"; 
 	//char packet_filter[] = "ip and tcp and host 10.24.2.3 and dst port 8099";
 	struct bpf_program fcode;
 	unsigned short us = 5;
@@ -209,6 +220,11 @@ int runNpcap()
 	pncErrorf = new std::ofstream("pncCheckErrors.txt");
 	if (!pncErrorf) {
 		std::cout << "Error we could not open pncCheckErrors.txt for writing." << std::endl;
+		return 0;
+	}
+	queueContents = new std::ofstream("leftoverQueueContents.txt");
+	if (!queueContents) {
+		std::cout << "Error we could not open leftoverQueueContents.txt for writing." << std::endl;
 		return 0;
 	}
 	//reportQueue = new concurrent_queue<reportRec>;
@@ -341,7 +357,8 @@ DWORD WINAPI PacketConsumer(LPVOID lpParam) {
 		PCapFrameVector temp;
 		bool b = pframeQueueVector->getNextElement(temp);
 		if (b) {
-			packet_consumer_vector(temp);
+			//packet_consumer_vector(temp);
+			packet_consumer_readalarm(temp);
 		}
 	} while (1);
 	return 0;
@@ -384,15 +401,17 @@ void packet_consumer_vector(PCapFrameVector& pcfv) {
 			iDestType = 2;
 	}
 	if (iDestType == 0) {//Stop processing the destination test failed
-		puts("Destination test failed!");
+		/*printf("Destination test failed! cpDestIP: %s cpAggregatorIP: %s cpPNCIP %s Dest Port: %d\n", 
+			cpDestIp, cpAggregatorIP, cpPNCIP,dport);*/
+		
 		return;
 	}
 	if (iDestType == 1 && dport != usAggPort) {
-		printf("Bad packet, dest is Agg:%s, but port is: %d\n", cpAggregatorIP, dport);
+		//printf("Bad packet, dest is Agg:%s, but port is: %d\n", cpAggregatorIP, dport);
 		return;
 	}
 	if (iDestType == 2 && dport != usPncPort) {
-		printf("Bad packet, dest is PNC:%s, but port is: %d\n", cpPNCIP, dport);
+		//printf("Bad packet, dest is PNC:%s, but port is: %d\n", cpPNCIP, dport);
 		return;
 	}
 	//Get a timestamp
@@ -409,6 +428,75 @@ void packet_consumer_vector(PCapFrameVector& pcfv) {
 	}
 	delete[]ucp;
 	
+}
+
+void packet_consumer_readalarm(PCapFrameVector& pcfv) 
+{
+	int iCmp = 0;
+	int iDestType = 0;
+	unsigned int sequenceNum;
+	char cpDestIp[64];
+	u_short sport, dport;
+	u_char* ucpPayload;
+	ip_header* ih;
+	tcp_header* tcpH;
+
+	pcap_pkthdr header = pcfv.rtHeader();
+	//get the packet data
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	TcpFrameInspector tcpInspector(ucp, ulPktSize);
+	tcpInspector.inspectFrameNoDbg();
+	sport = tcpInspector.rtSport();
+	dport = tcpInspector.rtDport();
+	sequenceNum = tcpInspector.rtSequenceNum();
+	u_int uiPayloadLocation = tcpInspector.rtPayloadLocation();
+	ih = tcpInspector.rtIpHeader();
+	tcpH = tcpInspector.rtTcpHeader();
+	strcpy(cpDestIp, tcpInspector.rtDestIp());
+	iCmp = strcmp(cpDestIp, cpAggregatorIP);
+	if (iCmp == 0)
+	{
+		iDestType = 1;
+	}
+	else {
+		iCmp = strcmp(cpDestIp, cpPNCIP);
+		if (iCmp == 0)
+			iDestType = 2;
+	}
+	if (iDestType == 0) {//Stop processing the destination test failed
+		/*printf("Destination test failed! cpDestIP: %s cpAggregatorIP: %s cpPNCIP %s Dest Port: %d\n",
+			cpDestIp, cpAggregatorIP, cpPNCIP, dport);*/
+
+		return;
+	}
+	if (iDestType == 1 && dport != usAggPort) {
+		//printf("Bad packet, dest is Agg:%s, but port is: %d\n", cpAggregatorIP, dport);
+		return;
+	}
+	if (iDestType == 2 && sport != usAggPort) {
+		//printf("Bad packet, dest is PNC:%s, but port is: %d\n", cpPNCIP, dport);
+		return;
+	}
+	//Get a timestamp
+	unsigned __int64 now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	ucpPayload = (u_char*)&ucp[uiPayloadLocation];
+	if (iDestType == 1)// This may be a PUT READ to the agg
+	{
+		//printf("INGRESS PACKET. Dest: %s sport: %d  dport = %d\n",cpDestIp,sport,dport);
+		AggregatorProcessorVector(pcfv, uiPayloadLocation, now);
+		//AggregatorProcessor(now, ih, tcpH, ucpPayload, tcpInspector.rtIpDataLen() - uiPayloadLocation);
+	}
+	else {
+		//printf("EGRESS PACKET. Dest: %s sport: %d  dport = %d\n", cpDestIp, sport, dport);
+		RESTAlarmProcessor(pcfv, uiPayloadLocation,now);
+		//WSProcessorVector(pcfv, uiPayloadLocation);
+	}
+
+	delete[]ucp;
 }
 
 
@@ -468,15 +556,15 @@ void pnc_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 			iDestType = 2;
 	}
 	if (iDestType == 0) {//Stop processing the destination test failed
-		puts("Destination test failed!");
+		//puts("Destination test failed!");
 		return;
 	}
 	if (iDestType == 1 && dport != usAggPort) {
-		printf("Bad packet, dest is Agg:%s, but port is: %d\n", cpAggregatorIP, dport);
+		//printf("Bad packet, dest is Agg:%s, but port is: %d\n", cpAggregatorIP, dport);
 		return;
 	}
 	if (iDestType == 2 && dport != usPncPort) {
-		printf("Bad packet, dest is PNC:%s, but port is: %d\n", cpPNCIP,dport);
+		//printf("Bad packet, dest is PNC:%s, but port is: %d\n", cpPNCIP,dport);
 		return;
 	}
 	//Get a timestamp
@@ -497,6 +585,57 @@ void pnc_packet_handler(u_char* param, const struct pcap_pkthdr* header, const u
 	}
 }
 
+void RESTAlarmProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp)
+{
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message
+		ullCntrl++;
+		return;
+	}
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	unsigned char* ucpPayload = &ucp[uiPayloadLocation];
+	char* cpUrl = strstr((char*)ucpPayload, "<read id=");
+	if (cpUrl == NULL) {
+		writeBadAggPacket((char*)ucpPayload, pv->size() - uiPayloadLocation);
+		ullNoId++;
+		return;
+	}
+	//crawl up to the begining of the id
+	for (int i = 0;i < 10;i++) {
+		cpUrl++;
+	}
+	//printf("RESTAlarmProcessor: %s\n", cpUrl);
+	// Get everything up to the " character
+	char cpTemp[128];
+	memset(&cpTemp, 0, 128);
+	int cnt = 0;
+	do {
+		if (cpUrl[cnt] == ' ' || cpUrl[cnt] == '"')  
+			break;
+		cpTemp[cnt] = cpUrl[cnt];
+		cnt++;
+	} while (cnt < 126);
+	//printf("\tRESTAlarmProcessor: the id: %s timeStamp: %lu\n",cpTemp,timeStamp);
+	ReadInfo theId(cpTemp, pcfv.rtTimeStamp());
+	unsigned __int64 tempTime;
+	bool bFind = pAggRecMap->isThere(cpTemp, tempTime);
+	if (bFind) {
+		ReadInfo r(cpTemp, tempTime);
+		AlarmReporter(r, theId, *tgmp);
+		
+		//wftd->saveFrameToDisk(frameLength, pkt_data, "Msg");
+	}
+	else {
+		ullNoMatchId++;
+		writeBadAggPacket((char*)ucpPayload, pv->size() - uiPayloadLocation);
+		//wftd->saveFrameToDisk(frameLength, pkt_data, "noMatchId");
+			//printf("\tPNCProcessor: the map DID NOT find a match for %s\n",theId.getId().c_str());
+		
+	}
+	delete[]ucp;
+}
 
 void AggregatorProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp) {
 	std::vector<unsigned char>* pv = pcfv.rtPktData();
@@ -524,7 +663,7 @@ void AggregatorProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation, u
 	memset(&cpTemp, 0, 128);
 	int cnt = 0;
 	do {
-		if (cpUrl[cnt] == ' ')
+		if (cpUrl[cnt] == ' ' || cpUrl[cnt] == '"')
 			break;
 		cpTemp[cnt] = cpUrl[cnt];
 		cnt++;
@@ -534,6 +673,16 @@ void AggregatorProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation, u
 	bool bIns = pAggRecMap->insertRec(theId);
 	if (bIns) {
 		ullReadCnt++;
+		/*char cpOutput[128] = { '\0' };
+		localtime_s
+		std::tm now = localtime(&theId.getTimeStamp);
+		
+		sprintf_s(cpOutput, sizeof(cpOutput), "%s,%s\n", asctime(info), theId.getId());
+		if (outf != NULL)
+		{
+			*outf << cpOutput;
+			outf->flush();
+		}*/
 	}
 	else {
 		ullReadInsertFail++;
@@ -849,9 +998,45 @@ void PNCProcessor(unsigned long long timeStamp, ip_header* ih, tcp_header* tcpH,
 	delete strp;
 }
 
+void AlarmReporter(ReadInfo read, ReadInfo alrm, TrackGarbledMessages& tgm) {
+	unsigned long long ullCurrent;
+	char cpOutput[128] = { '\0' };
+	ullAlarmCnt++;
+	ullCurrent = alrm.getTimeStamp() - read.getTimeStamp();
+	ullTotal = ullTotal + ullCurrent;
+	iSampleCount++;
+	bool bErase = pAggRecMap->erase(alrm.getId());
+	if (!bErase) {
+		printf("%s was not erased.\n", alrm.getId().c_str());
+	}
+	
+	if (ullCurrent < ullAlrmLowTarget) {
+		iAlrmLowTargetCnt++;
+		printf("AlarmReporter: id: %s Delay: %lu LOW TARGET\n", alrm.getId().c_str(), ullCurrent);
+		
+	}
+	else if (ullCurrent < ullAlrmMidTarget) {
+		iAlrmMidTargetCnt++;
+		printf("AlarmReporter: id: %s Delay: %lu MID TARGET, READ TIME: %lu\n", alrm.getId().c_str(), ullCurrent, read.getTimeStamp());
+	}
+	else if (ullCurrent < ullAlrmHighTarget) {
+		iAlrmHighTargetCnt++;
+		printf("AlarmReporter: id: %s Delay: %lu HIGH TARGET, READ TIME: %lu\n", alrm.getId().c_str(), ullCurrent, read.getTimeStamp());
+	} 
+	else if (ullCurrent > ullAlrmHighTarget) {
+		printf("AlarmReporter: id: %s Delay: %lu OVER HIGH TARGET, READ TIME: %lu\n", alrm.getId().c_str(), ullCurrent, read.getTimeStamp());
+	}
+	sprintf_s(cpOutput, sizeof(cpOutput), "%s,%lu,%lu,%lu\n", alrm.getId().c_str(),ullCurrent, alrm.getTimeStamp(), read.getTimeStamp());
+	if (outf != NULL)
+	{
+		*outf << cpOutput;
+		outf->flush();
+	}
+}
+
 void PNCReporter2(ReadInfo read, ReadInfo pnc, TrackGarbledMessages& tgm) {
 	unsigned long long ullCurrent;
-
+	
 	ullPNCCnt++;
 	ullCurrent = pnc.getTimeStamp() - read.getTimeStamp();
 	ullTotal = ullTotal + ullCurrent;
@@ -860,13 +1045,7 @@ void PNCReporter2(ReadInfo read, ReadInfo pnc, TrackGarbledMessages& tgm) {
 	if (!bErase) {
 		printf("%s was not erased.", pnc.getId().c_str());
 	}
-	/*
-	unsigned long ulBefore = aggMap.size();
-	int iErase = aggMap.erase(pnc.getId());
-	if (iErase < 1) {
-		printf("%s was not erased.", pnc.getId().c_str());
-	}
-	unsigned long ulAfter = aggMap.size();*/
+	
 	
 	if (ullCurrent < ullLowTarget) {
 		iLowTargetCnt++;
@@ -1025,6 +1204,7 @@ void writeBadPacket(std::string* strp,char *cp) {
 	*errorf << "cp=" << cp << std::endl;
 	*errorf << *strp << std::endl;
 	*errorf << "*****************" << std::endl;
+	
 	errorf->flush();
 }
 
@@ -1073,6 +1253,22 @@ void writePncCheckError(u_short ipDataLen, u_int uiPayloadLocation, u_int ip_len
 	pncErrorf->flush();
 }
 
+void AlarmEndOfRunReport() {
+
+	double lowPercent = (double)iAlrmLowTargetCnt / ullAlarmCnt;
+	double midPercent = ((double)iAlrmLowTargetCnt + (double)iAlrmMidTargetCnt) / ullAlarmCnt;
+	double highPercent = ((double)iAlrmLowTargetCnt + (double)iAlrmMidTargetCnt + (double)iAlrmHighTargetCnt) / ullAlarmCnt;
+	unsigned long long numOver = ullAlarmCnt - (iAlrmLowTargetCnt + iAlrmMidTargetCnt + iAlrmHighTargetCnt);
+
+	std::cout << "Alarm End Of Run Report: \n\tLow Target: " <<100 * lowPercent << "\n\tMid Target: " <<100 * midPercent << "\n\t" << "High Target: "
+		<< 100 * highPercent << std::endl;
+	if (numOver > 0) {
+		std::cout <<"\t"<< numOver << " Alarms were over the high threshold." << std::endl;
+	}
+	
+}
+
+
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType) {
 
 	switch (fdwCtrlType) {
@@ -1081,6 +1277,12 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType) {
 		std::cout << "Size of READ Queue: " << pAggRecMap->getSize() << std::endl;
 		std::cout << "Total Number of READS added: " << ullReadCnt << std::endl;
 		std::cout << "Total Number of Messages trapped going to the PNC: " << ullPNCCnt << std::endl;
+		std::cout << "Total Number of Messages trapped as Alarms: " << ullAlarmCnt << std::endl;
+		std::cout << "\tAlarms Low Target: " << iAlrmLowTargetCnt << std::endl;
+		std::cout << "\tAlarms Mid Target: " << iAlrmMidTargetCnt << std::endl;
+		std::cout << "\tAlarms High Target: " << iAlrmHighTargetCnt << std::endl;
+		AlarmEndOfRunReport();
+		pAggRecMap->saveMapToDisk(queueContents);
 		std::cout << "Num of WS Control messages: " << ullWSCntrl << std::endl;
 		std::cout << "Number of Control Messages: " << ullCntrl << std::endl;
 		std::cout << "Number of failed decode: " << ullNoDecode << std::endl;

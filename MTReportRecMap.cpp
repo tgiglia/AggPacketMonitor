@@ -1,7 +1,11 @@
 #include "pch.h"
 #include "ReportRec.h"
+#include <fstream>
 
 using namespace std;
+
+
+
 
 MTReportRecMap::MTReportRecMap() {
 	hMutex = CreateMutexW(NULL, TRUE, NULL);
@@ -140,6 +144,35 @@ unsigned long long MTReportRecMap::getSize() {
 		break;
 	}
 	return 0;
+}
+
+bool MTReportRecMap::saveMapToDisk(std::ofstream* outfile) {
+	DWORD dwWaitResult;
+	dwWaitResult = WaitForSingleObject(hMutex, 1000);
+	switch (dwWaitResult) {
+	case WAIT_OBJECT_0:
+		try {
+			std::map<std::string, ReadInfo>::iterator it = aggMap->begin();
+			while (it != aggMap->end()) {
+				ReadInfo ri = it->second;	
+				*outfile << ri.getId() << "," << ri.getTimeStamp() << std::endl;
+				it++;
+			}
+		}
+		finally {
+			if (!ReleaseMutex(hMutex)) {
+				cout << "ERROR! MTReportRecMap::saveMapToDisk: Could not release mutex." << endl;
+			}
+		}
+		break;
+	case WAIT_ABANDONED:
+		cout << "MTReportRecMap::saveMapToDisk: WAIT_ABANDONED" << endl;
+		break;
+	case WAIT_TIMEOUT:
+		cout << "MTReportRecMap::saveMapToDisk WAIT_TIMEOUT" << endl;
+		break;
+	}
+	return true;
 }
 
 MTReportRecQueue::MTReportRecQueue() {
