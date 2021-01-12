@@ -29,6 +29,10 @@ bool APMConfig::loadConfig() {
 		sprintf_s(cpTemp, sizeof(cpTemp), "%s", PNCIP->ToString());
 		sPNCIP = cpTemp;
 
+		String^ snifftype = Configuration::ConfigurationManager::AppSettings["SniffType"];
+		sprintf_s(cpTemp, sizeof(cpTemp), "%s", snifftype->ToString());
+		SniffType = cpTemp;
+
 		String^ AggPort = Configuration::ConfigurationManager::AppSettings["AggPort"];
 		sprintf_s(cpTemp, sizeof(cpTemp), "%s", AggPort->ToString());
 		usAggPort = std::stoi(cpTemp);
@@ -52,4 +56,5 @@ void APMConfig::showConfig() {
 	cout << "sPNCIP: " << sPNCIP << endl;
 	cout << "usAggPort: " << usAggPort << endl;
 	cout << "usPncPort: " << usPncPort << endl;
+	cout << "SniffType: " << SniffType << endl;
 }

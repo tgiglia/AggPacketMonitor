@@ -69,21 +69,32 @@ void writeAggInsert(ReadInfo ri);
 void writePncCheckError(u_short ipDataLen, u_int uiPayloadLocation, u_int ip_len, u_int uiTcpHeaderSize, unsigned int uiHeaderLen,
 	unsigned int uiCapLen,unsigned char c);
 void analyzeWebSocketFrame(const unsigned char *pkt_data, int len);
+void analyzeIPv6Frame(const unsigned char* pkt_data, int len);
 BOOL WINAPI CtrlHandler(DWORD fdwCtrlType);
 DWORD WINAPI PacketConsumer(LPVOID lpParam);
 void packet_consumer_vector(PCapFrameVector& pcfv);
+void packet_consumer_vector_pnc(PCapFrameVector& pcfv);
+void packet_consumer_duplicate_readalarm_vector(PCapFrameVector& pcfv);
 void packet_consumer_readalarm(PCapFrameVector& pcfv);
+void packet_consumer_injector(PCapFrameVector& pcfv);
+void packet_consumer_homeagg(PCapFrameVector& pcfv);
+void packet_consumer_debugger(PCapFrameVector& pcfv);
 void WSProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation);
+void WSProcessorPNCVector(PCapFrameVector& pcfv, u_int uiPayloadLocation);
+void WSAlarmProcessorPNCVector(PCapFrameVector& pcfv, u_int uiPayloadLocation);
+void WSAggAlarmProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation,time_t timeStamp);
 void AggregatorProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp);
+void HomeAggregatorProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation, time_t timeStamp);
 void RESTAlarmProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp);
-
-
-
-
+void InjectorProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp);
+bool setAnalysisFunction(APMConfig* pConfig);
 
 std::map<ReadInfo,int> readsMap;
 //std::map<std::string, ReadInfo> aggMap;
 MTReportRecMap* pAggRecMap;
+PNCReportMap* pPNCRecMap;
+PNCReportMap* pPNCAlarmMap;
+
 MTPcapFrameVectorQueue* pframeQueueVector;
 
 char cpAggregatorIP[64];
@@ -123,11 +134,21 @@ std::ofstream* errorf;
 std::ofstream* aggErrorf;
 std::ofstream* pncErrorf;
 std::ofstream* queueContents;
+std::ofstream* homeAggReadFile;
+std::ofstream* readAlarmLatency;
 
 WriteFrameToDisk* wftd;
 TrackGarbledMessages* tgmp;
 
+int iClassType=0;
 
+void showCurrentTime();
+template<typename T>
+void print_time(std::chrono::time_point<T> time);
+template<typename T>
+void writeAggReadData(char* cpID, time_t t, std::chrono::time_point<T> time);
+
+void (*fun_ptr) (PCapFrameVector& pcfv) = NULL;
 
 int main(array<System::String ^> ^args)
 {
@@ -140,9 +161,14 @@ int main(array<System::String ^> ^args)
 		std::cout << "ERROR Could Not Load Configuration. Exiting." << std::endl;
 		return 0;
 	}
-
+	if (!setAnalysisFunction(pConfig)) {
+		return 0;
+	}
 	tgmp = new TrackGarbledMessages(.50);
 	pAggRecMap = new MTReportRecMap();
+	pPNCRecMap = new PNCReportMap("DuplicateReads.csv");
+	pPNCAlarmMap = new PNCReportMap("DuplicateAlarms.csv");
+
 	ullNoId = 0;
 	ullCntrl = 0;
 	ullNoDecode = 0;
@@ -157,7 +183,13 @@ int main(array<System::String ^> ^args)
 		std::cout << "ERROR, could not install Control Handler." << std::endl;
 		return 0;
 	}
-	//analyzeWebSocketFrame((unsigned char *)ctrlMsg1,60);
+	
+	/*bool b = true;
+	if (b) {
+		
+		analyzeIPv6Frame((unsigned char*)pncdupprocesser1, 80);
+		return 0;
+	}*/
 	//analyzeWebSocketFrame((unsigned char *)ctrlMsg2, 60);
 	//analyzeWebSocketFrame((unsigned char*)ctrlMsg3, 63);
 	//analyzeWebSocketFrame((unsigned char*)Msg4, 1170);
@@ -168,16 +200,101 @@ int main(array<System::String ^> ^args)
 	//analyzeWebSocketFrame((unsigned char*)ctrlMsg5, 63);
 	pframeQueueVector = new MTPcapFrameVectorQueue();
 	DWORD dwThread;
+	
+	showCurrentTime();
+
 	HANDLE h = CreateThread(NULL, 0, PacketConsumer, NULL, 0, &dwThread);
 	runNpcap();
 	delete pAggRecMap;
+	delete pPNCRecMap;
+	delete pPNCAlarmMap;
 	delete tgmp;
 	delete pframeQueueVector;
+	
 	std::cout << "AggPacketMonitor terminating." << std::endl;
     return 0;
 }
 
+void showCurrentTime() {
+	std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+	
 
+	print_time(now);
+	
+	
+}
+
+template<typename T>
+void writeAggReadData(char *cpID,time_t t,std::chrono::time_point<T> time) {
+	using namespace std;
+	using namespace std::chrono;
+	char cpTemp[100];
+	char cpLine[128];
+
+	strftime(cpTemp, sizeof(cpTemp), "%Y-%m-%d %H:%M:%S", localtime(&t));
+	typename T::duration since_epoch = time.time_since_epoch();
+	seconds s = duration_cast<seconds>(since_epoch);
+	since_epoch -= s;
+	milliseconds milli = duration_cast<milliseconds>(since_epoch);
+	sprintf_s(cpLine, sizeof(cpLine), "%s.%lld", cpTemp, milli.count());
+	*homeAggReadFile << cpLine << "," << cpID << std::endl;
+
+}
+
+template<typename T>
+void print_time(std::chrono::time_point<T> time) {
+	using namespace std;
+	using namespace std::chrono;
+
+	time_t curr_time = T::to_time_t(time);
+	char sRep[100];
+	strftime(sRep, sizeof(sRep), "%Y-%m-%d %H:%M:%S", localtime(&curr_time));
+	
+	typename T::duration since_epoch = time.time_since_epoch();
+	seconds s = duration_cast<seconds>(since_epoch);
+	since_epoch -= s;
+	milliseconds milli = duration_cast<milliseconds>(since_epoch);
+	cout << '[' << sRep << ":" << milli.count() << "]\n";
+}
+
+bool setAnalysisFunction(APMConfig* pConfig) {
+	if (pConfig->rtSniffType().compare("websocketlatency") == 0) {
+		fun_ptr = &packet_consumer_vector;
+		iClassType = 1;
+		return true;
+	}
+	if (pConfig->rtSniffType().compare("alarmlatency") == 0) {
+		fun_ptr = &packet_consumer_readalarm;
+		iClassType = 2;
+		return true;
+	}
+	if (pConfig->rtSniffType().compare("injectorprocessor") == 0) {
+		fun_ptr = &packet_consumer_injector;
+		iClassType = 3;
+		return true;
+	}
+	if (pConfig->rtSniffType().compare("homeaggprocessor") == 0) {
+		fun_ptr = &packet_consumer_homeagg;
+		iClassType = 4;
+		return true;
+	}
+	if (pConfig->rtSniffType().compare("pncdupprocessor") == 0) {
+		fun_ptr = &packet_consumer_vector_pnc;
+		iClassType = 5;
+		return true;
+	}
+	if (pConfig->rtSniffType().compare("packet_consumer_debugger") == 0) {
+		fun_ptr = &packet_consumer_debugger;
+		iClassType = 5;
+		return true;
+	}
+	if (pConfig->rtSniffType().compare("pncaggdupprocessor") == 0) {
+		fun_ptr = &packet_consumer_duplicate_readalarm_vector;
+		iClassType = 6;
+		return true;
+	}
+	return false;
+}
 int runNpcap()
 {
 	pcap_if_t* alldevs;
@@ -227,6 +344,17 @@ int runNpcap()
 		std::cout << "Error we could not open leftoverQueueContents.txt for writing." << std::endl;
 		return 0;
 	}
+	homeAggReadFile = new std::ofstream("aggreads.csv");
+	if (!homeAggReadFile) {
+		std::cout << "Error we could not open aggreads.csv for writing." << std::endl;
+		return 0;
+	}
+	readAlarmLatency = new std::ofstream("readAlarmLatency.csv");
+	if (!readAlarmLatency) {
+			std::cout << "Error we could not open readAlarmLatency.csv for writing." << std::endl;
+			return 0;
+	}
+	
 	//reportQueue = new concurrent_queue<reportRec>;
 
 #ifdef WIN32
@@ -341,12 +469,16 @@ int runNpcap()
 	delete aggErrorf;
 	delete pncErrorf;
 	delete wftd;
+	delete homeAggReadFile;
+	delete readAlarmLatency;
+
 	return 0;
 }
 
 //The packet_producer's only job is to grab the packet from the wire and buffer it. The consumer thread does all the analysis
 void packet_producer(u_char* param, const struct pcap_pkthdr* header, const u_char* pkt_data) {
 	PCapFrameVector* pfv = new PCapFrameVector(header, pkt_data);
+	//std::cout << "packet_producer: got packet." << std::endl;
 	pframeQueueVector->addElement(*pfv);
 	delete pfv;
 }
@@ -357,8 +489,10 @@ DWORD WINAPI PacketConsumer(LPVOID lpParam) {
 		PCapFrameVector temp;
 		bool b = pframeQueueVector->getNextElement(temp);
 		if (b) {
-			//packet_consumer_vector(temp);
-			packet_consumer_readalarm(temp);
+			//packet_consumer_vector(temp);//handles the WinSocket sniffing.
+			//packet_consumer_readalarm(temp); //handles the latency monitoring for between recieving the READ and sending the ALARM
+			//packet_consumer_injector(temp);
+			(*fun_ptr) (temp);
 		}
 	} while (1);
 	return 0;
@@ -428,6 +562,251 @@ void packet_consumer_vector(PCapFrameVector& pcfv) {
 	}
 	delete[]ucp;
 	
+}
+
+void packet_consumer_debugger(PCapFrameVector& pcfv) {
+	int iCmp = 0;
+	int iDestType = 0;
+	unsigned int sequenceNum;
+	char cpDestIp[64];
+	u_short sport, dport;
+	u_char* ucpPayload;
+	ip_header* ih;
+	tcp_header* tcpH;
+	std::cout << "packet_consumer_debugger called!" << std::endl;
+
+	pcap_pkthdr header = pcfv.rtHeader();
+	//get the packet data
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	TcpFrameInspector tcpInspector(ucp, ulPktSize);
+	tcpInspector.inspectFrameDbg();
+}
+
+void packet_consumer_duplicate_readalarm_vector(PCapFrameVector& pcfv) {
+	int iDestType = 0;
+	unsigned int sequenceNum;
+	
+	u_short sport, dport;
+	u_char* ucpPayload;
+	ip_header* ih;
+	tcp_header* tcpH;
+	APMConfig* pConfig = pConfig->getInstance();
+	//std::cout << "packet_consumer_vector_pnc called!" << std::endl;
+
+	pcap_pkthdr header = pcfv.rtHeader();
+	//get the packet data
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	//wftd->saveFrameToDisk(ulPktSize, ucp, "pncdupprocesser");
+	TcpFrameInspector tcpInspector(ucp, ulPktSize);
+	tcpInspector.inspectFrameNoDbg();
+
+	sport = tcpInspector.rtSport();
+	dport = tcpInspector.rtDport();
+	sequenceNum = tcpInspector.rtSequenceNum();
+	u_int uiPayloadLocation = tcpInspector.rtPayloadLocation();
+	ih = tcpInspector.rtIpHeader();
+	tcpH = tcpInspector.rtTcpHeader();
+	
+	if (dport != pConfig->rtusPncPort()) {
+		std::cout << "Dest port: " << dport << " does not equal PNC port: " << pConfig->rtusPncPort() << std::endl;
+		delete[] ucp;
+		return;
+	}
+	//get the Source and Destination addresses
+	unsigned char* ucpSource = tcpInspector.rtIPv6Source();
+	unsigned char* ucpDest = tcpInspector.rtIPv6Source();
+	//If the Source IP is the Aggregator call WSProcessorPNCVector
+	int iCmp = strcmp((const char*)ucpSource, pConfig->rtAggregatorIP().c_str());
+	if (iCmp == 0) {
+		WSProcessorPNCVector(pcfv, uiPayloadLocation);
+	}
+	else {
+		//If the Source address is the PNC and the Dest address is  the Aggregator call WSAlarmProcessorPNCVector
+		iCmp = strcmp((const char*)ucpSource, pConfig->rtPNCIP().c_str());
+		if (iCmp == 0) {
+			int iDestCmp = strcmp((const char*)ucpDest, pConfig->rtAggregatorIP().c_str());
+			if (iDestCmp == 0) {
+				WSAlarmProcessorPNCVector(pcfv, uiPayloadLocation);
+			}
+		}
+	}
+	
+
+	delete[] ucp;
+}
+
+void packet_consumer_vector_pnc(PCapFrameVector& pcfv) {
+	int iCmp = 0;
+	int iDestType = 0;
+	unsigned int sequenceNum;
+	char cpDestIp[64];
+	u_short sport, dport;
+	u_char* ucpPayload;
+	ip_header* ih;
+	tcp_header* tcpH;
+	APMConfig* pConfig = pConfig->getInstance();
+	//std::cout << "packet_consumer_vector_pnc called!" << std::endl;
+	
+	pcap_pkthdr header = pcfv.rtHeader();
+	//get the packet data
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	wftd->saveFrameToDisk(ulPktSize, ucp, "pncdupprocesser");
+	TcpFrameInspector tcpInspector(ucp, ulPktSize);
+	tcpInspector.inspectFrameNoDbg();
+	
+	sport = tcpInspector.rtSport();
+	dport = tcpInspector.rtDport();
+	sequenceNum = tcpInspector.rtSequenceNum();
+	u_int uiPayloadLocation = tcpInspector.rtPayloadLocation();
+	ih = tcpInspector.rtIpHeader();
+	tcpH = tcpInspector.rtTcpHeader();
+	strcpy(cpDestIp, tcpInspector.rtDestIp());
+	if (dport != pConfig->rtusPncPort()) {
+		std::cout << "Dest port: " << dport << " does not equal PNC port: " << pConfig->rtusPncPort() << std::endl;
+		delete[] ucp;
+		return;
+	}
+	//std::cout << "Calling WSProcessorPNCVector with IP: " << cpDestIp << " and port: " << dport << std::endl;
+
+	WSProcessorPNCVector(pcfv,uiPayloadLocation);
+
+	delete[]ucp;
+}
+
+void packet_consumer_injector(PCapFrameVector& pcfv) {
+	int iCmp = 0;
+	int iDestType = 0;
+	unsigned int sequenceNum;
+	char cpDestIp[64];
+	u_short sport, dport;
+	u_char* ucpPayload;
+	ip_header* ih;
+	tcp_header* tcpH;
+
+	pcap_pkthdr header = pcfv.rtHeader();
+	//get the packet data
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	TcpFrameInspector tcpInspector(ucp, ulPktSize);
+	tcpInspector.inspectFrameNoDbg();
+	sport = tcpInspector.rtSport();
+	dport = tcpInspector.rtDport();
+	sequenceNum = tcpInspector.rtSequenceNum();
+	u_int uiPayloadLocation = tcpInspector.rtPayloadLocation();
+	ih = tcpInspector.rtIpHeader();
+	tcpH = tcpInspector.rtTcpHeader();
+	//Get a timestamp
+	unsigned __int64 now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+	ucpPayload = (u_char*)&ucp[uiPayloadLocation];
+	InjectorProcessor(pcfv, uiPayloadLocation,now);
+}
+
+void InjectorProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp) {
+	time_t timer;
+	char buffer[128];
+	timer = time(NULL);
+	struct tm* tm_info = localtime(&timer);
+	strftime(buffer, sizeof(buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+	//std::cout << "Got packet!" << std::endl;
+	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message		
+		//std::cout << "Got Control packet." << std::endl;
+		return;
+	}
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	unsigned char* ucpPayload = &ucp[uiPayloadLocation];
+	char* cpUrl = strstr((char*)ucpPayload, "ReadInsertReads");
+	if (cpUrl != NULL) {
+		std::cout << "ReadInsertReads found: " << buffer << std::endl;
+		return;
+	}
+	cpUrl = strstr((char*)ucpPayload, "I N S E R T");
+	if (cpUrl != NULL) {
+		std::cout << "INSERT found: " << buffer << std::endl;
+		return;
+	}
+	cpUrl = strstr((char*)ucpPayload, "S E L E C T");
+	if (cpUrl != NULL) {
+		std::cout << "SELECT found: " << buffer << std::endl;
+		return;
+	}
+	writeBadAggPacket((char*)ucpPayload, pv->size() - uiPayloadLocation);
+}
+
+
+void packet_consumer_homeagg(PCapFrameVector& pcfv) 
+{
+	int iCmp = 0;
+	int iDestType = 0;
+	unsigned int sequenceNum;
+	char cpDestIp[64];
+	u_short sport, dport;
+	u_char* ucpPayload;
+	ip_header* ih;
+	tcp_header* tcpH;
+
+	pcap_pkthdr header = pcfv.rtHeader();
+	//get the packet data
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	TcpFrameInspector tcpInspector(ucp, ulPktSize);
+	tcpInspector.inspectFrameNoDbg();
+	sport = tcpInspector.rtSport();
+	dport = tcpInspector.rtDport();
+	sequenceNum = tcpInspector.rtSequenceNum();
+	u_int uiPayloadLocation = tcpInspector.rtPayloadLocation();
+	ih = tcpInspector.rtIpHeader();
+	tcpH = tcpInspector.rtTcpHeader();
+	strcpy(cpDestIp, tcpInspector.rtDestIp());
+
+	if (dport == usAggPort) {
+		iDestType = 1;
+	}
+	
+	
+	
+	//Get a timestamp
+	std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+	std::chrono::system_clock::duration tp = now.time_since_epoch();
+	tp -= std::chrono::duration_cast<std::chrono::seconds>(tp);
+	time_t tt = std::chrono::system_clock::to_time_t(now);
+	//Set the payload
+	ucpPayload = (u_char*)&ucp[uiPayloadLocation];
+	if (iDestType == 1)// This may be a PUT READ to the agg
+	{
+		printf("\tINGRESS PACKET. Dest: %s sport: %d  dport = %d packetSize = %d\n",cpDestIp,sport,dport, ulPktSize);
+		HomeAggregatorProcessor(pcfv, uiPayloadLocation, tt);
+		
+	}
+	else {
+		printf("\tEGRESS PACKET. Dest: %s sport: %d  dport = %d packetSize = %d\n", cpDestIp, sport, dport, ulPktSize);
+		WSAggAlarmProcessor(pcfv, uiPayloadLocation,tt);
+		//RESTAlarmProcessor(pcfv, uiPayloadLocation, now);
+		//WSProcessorVector(pcfv, uiPayloadLocation);
+	}
+
+	delete[]ucp;
 }
 
 void packet_consumer_readalarm(PCapFrameVector& pcfv) 
@@ -637,6 +1016,53 @@ void RESTAlarmProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned
 	delete[]ucp;
 }
 
+void HomeAggregatorProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation, time_t timeStamp) {
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message
+		ullCntrl++;
+		return;
+	}
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	unsigned char* ucpPayload = &ucp[uiPayloadLocation];
+	char* cpUrl = strstr((char*)ucpPayload, "PUT /read/");
+	if (cpUrl == NULL) {
+		//puts("\tAggregatorProcessor: could not find PUT /read/");
+		writeBadAggPacket((char*)ucpPayload, pv->size() - uiPayloadLocation);
+		ullNoFindPutRead++;
+		return;
+	}
+	//crawl up to the begining of the id
+	for (int i = 0;i < 10;i++) {
+		cpUrl++;
+	}
+	// Get everything up to the " character
+	char cpTemp[128];
+	memset(&cpTemp, 0, 128);
+	int cnt = 0;
+	do {
+		if (cpUrl[cnt] == ' ' || cpUrl[cnt] == '"')
+			break;
+		cpTemp[cnt] = cpUrl[cnt];
+		cnt++;
+	} while (cnt < 126);
+	//printf("\tAggregatorProcessor: the id: %s timeStamp: %lu\n",cpTemp,timeStamp);
+	ReadInfo theId(cpTemp, timeStamp);
+	bool bIns = pAggRecMap->insertRec(theId);
+	
+	if (bIns) {
+		//WE SHOULD WRITE THE DATA TO DISK HERE
+		std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
+		writeAggReadData(cpTemp, timeStamp, now);
+		ullReadCnt++;
+	}
+	else {
+		ullReadInsertFail++;
+	}
+	delete[]ucp;
+}
+
 void AggregatorProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation, unsigned __int64 timeStamp) {
 	std::vector<unsigned char>* pv = pcfv.rtPktData();
 	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message
@@ -688,6 +1114,66 @@ void AggregatorProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation, u
 		ullReadInsertFail++;
 	}
 	delete []ucp;
+}
+
+void WSAggAlarmProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation, time_t timeStamp) {
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+
+	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message, not a WS message
+		ullCntrl++;
+		return;
+	}
+
+	if (pv->size() <= (uiPayloadLocation + 9)) {//This is a WS control message
+		ullWSCntrl++;
+		return;
+	}
+
+	std::string* strp = new std::string();
+	AnalyzeWebsocketFrameVector awf;
+	awf.AnalyzeFrame(pcfv, strp, uiPayloadLocation);
+	std::cout << "WSAggAlarmProcessor: decoded string: " << strp->c_str() << std::endl;
+	int n = strp->length();
+	if (n <= 0) {
+		ullNoDecode++;
+		
+		//wftd->saveFrameToDisk(pcfv, "Decode FAILED");
+		return;
+		
+	}
+	char* cpId = strstr((char*)strp->c_str(), "read id=");
+	if (cpId == NULL)
+	{
+		ullNoId++;
+		*errorf << "No Id: dataLen is: " << pcfv.rtHeader().caplen << "\n" << strp->c_str() << std::endl;
+		//wftd->saveFrameToDisk(frameLength, pkt_data, "noId");
+		return;
+	}
+	cpId++;cpId++;cpId++;cpId++;cpId++;cpId++;cpId++;cpId++;cpId++;
+	//Get everything up to the " character
+	char cpTemp[64];
+	memset(&cpTemp, 0, 64);
+	int cnt = 0;
+	do {
+		if (cpId[cnt] == '"')
+			break;
+		cpTemp[cnt] = cpId[cnt];
+		cnt++;
+	} while (cnt < 62);
+	std::cout << "WSAggAlarmProcessor: got ID: " << cpTemp << std::endl;
+	//Is this ID in pAggRecMap?
+	unsigned __int64 origTimeStamp;
+	if (pAggRecMap->isThere(cpTemp,origTimeStamp)) {
+		//If yes compare the two time stamps and write to a file.
+		time_t diffTime = timeStamp - origTimeStamp;
+		//write to a file.
+		*readAlarmLatency << cpTemp << "," << diffTime << std::endl;
+	}
+	
+
+
+
+
 }
 
 void WSProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
@@ -749,6 +1235,168 @@ void WSProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
 	delete strp;
 }
 
+void WSAlarmProcessorPNCVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message, not a WS message
+		std::cout << "WSAlarmProcessorPNCVector: TCP control message, returning." << std::endl;
+		ullCntrl++;
+		return;
+	}
+	if (pv->size() <= (uiPayloadLocation + 9)) {//This is a WS control message
+		std::cout << "WSAlarmProcessorPNCVector: WS control message, returning." << std::endl;
+		ullWSCntrl++;
+		return;
+	}
+	std::cout << "WSAlarmProcessorPNCVector: Analyzing packet..." << std::endl;
+	std::string* strp = new std::string();
+	AnalyzeWebsocketFrameVector awf;
+	awf.AnalyzeFrame(pcfv, strp, uiPayloadLocation);
+	//std::cout << strp->c_str() << std::endl;
+	int n = strp->length();
+	if (n <= 0) {
+		ullNoDecode++;
+		return;
+	}
+	//We have a decoded string. Now its time to find the READ ID
+	char* cpUrl = strstr((char*)strp->c_str(), "<read id=");
+	if (cpUrl == NULL) {
+		std::cout << "WSAlarmProcessorPNCVector: coult not find <read id=" << std::endl;
+		ullNoId++;
+		return;
+	}
+	//crawl up to the begining of the id
+	for (int i = 0;i < 10;i++) {
+		cpUrl++;
+	}
+	char cpTemp[128];
+	memset(&cpTemp, 0, 128);
+	int cnt = 0;
+	do {
+		if (cpUrl[cnt] == ' ' || cpUrl[cnt] == '"')
+			break;
+		cpTemp[cnt] = cpUrl[cnt];
+		cnt++;
+	} while (cnt < 126);
+	//Ok the READ ID is in cpTemp, now we have to figure out if its been seen before.
+	ReadInfo theId(cpTemp, pcfv.rtTimeStamp());
+	// Check ID in pPNCRecMap
+	unsigned __int64 tempTime = 0;
+	bool bFind = pPNCAlarmMap->isThere(cpTemp, tempTime);
+	if (bFind) {
+		ReadInfo updateObj(cpTemp, tempTime + 1);
+		pPNCAlarmMap->erase(cpTemp);
+		pPNCAlarmMap->insertRec(updateObj);
+
+	}
+	else {
+		unsigned __int64 initTime = 0;
+		ReadInfo theId(cpTemp, initTime);
+		pPNCAlarmMap->insertRec(theId);
+	}
+
+	delete strp;
+}
+
+void WSProcessorPNCVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
+	std::vector<unsigned char>* pv = pcfv.rtPktData();
+	//std::cout << "WSProcessorPNCVector: called!" << std::endl;
+	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message, not a WS message
+		std::cout << "WSProcessorPNCVector: TCP control message, returning." << std::endl;
+		ullCntrl++;
+		return;
+	}
+
+	if (pv->size() <= (uiPayloadLocation + 9)) {//This is a WS control message
+		std::cout << "WSProcessorPNCVector: WS control message, returning." << std::endl;
+		ullWSCntrl++;
+		return;
+	}
+	std::cout << "WSProcessorPNCVector: Analyzing packet..." << std::endl;
+	
+	std::string* strp = new std::string();
+	AnalyzeWebsocketFrameVector awf;
+	awf.AnalyzeFrame(pcfv, strp, uiPayloadLocation);
+	//std::cout << strp->c_str() << std::endl;
+	int n = strp->length();
+	if (n <= 0) {
+		ullNoDecode++;
+		return;
+	}
+	char* cpId = strstr((char*)strp->c_str(), "id=");
+	if (cpId == NULL)
+	{
+		ullNoId++;
+		*errorf << "No Id: dataLen is: " << pcfv.rtHeader().caplen << "\n" << strp->c_str() << std::endl;
+		//wftd->saveFrameToDisk(frameLength, pkt_data, "noId");
+
+		return;
+	}
+	cpId++;cpId++;cpId++;cpId++;
+	//Get everything up to the " character
+	char cpTemp[64];
+	memset(&cpTemp, 0, 64);
+	int cnt = 0;
+	do {
+		if (cpId[cnt] == '"')
+			break;
+		cpTemp[cnt] = cpId[cnt];
+		cnt++;
+	} while (cnt < 62);
+	ReadInfo theId(cpTemp, pcfv.rtTimeStamp());
+	// Check ID in pPNCRecMap
+	unsigned __int64 tempTime = 0;
+	bool bFind = pPNCRecMap->isThere(cpTemp, tempTime);
+	if (bFind) {
+		ReadInfo updateObj(cpTemp, tempTime + 1);
+		pPNCRecMap->erase(cpTemp);
+		pPNCRecMap->insertRec(updateObj);
+
+	}
+	else {
+		unsigned __int64 initTime = 0;
+		ReadInfo theId(cpTemp, initTime);
+		pPNCRecMap->insertRec(theId);
+	}
+
+	delete strp;
+}
+
+void analyzeIPv6Frame(const unsigned char* pkt_data, int len) {
+	std::cout << "****** START analyzeIPv6Frame *****" << std::endl;
+
+	TcpFrameInspector tcpInspector(pkt_data, len);
+	tcpInspector.inspectFrameNoDbg();
+	int iTotal = 0;
+	int iGroupCount = 0;
+	unsigned char IPv6Address[45];
+	memset(IPv6Address, 0, sizeof(IPv6Address));
+	for (int i = 22;i < 38;i++) {
+		unsigned char tmp = pkt_data[i];
+		unsigned char upperNibble = tcpInspector.getMostSignificantNibble(tmp);
+		unsigned char lowerNibble = tcpInspector.getLeastSignificantNibble(tmp);
+		unsigned char tranUpper = tcpInspector.translateNumberToChar(upperNibble);
+		unsigned char tranLower = tcpInspector.translateNumberToChar(lowerNibble);
+		printf("pkt_data[%d] = %u upper nibble = %u/%c  lower nibble = %u/%c\n", i, tmp,
+			upperNibble, tranUpper,
+			lowerNibble, tranLower);
+		IPv6Address[iTotal] = tranUpper;
+		iTotal++;
+		iGroupCount++;
+		IPv6Address[iTotal] = tranLower;
+		iTotal++;
+		iGroupCount++;
+		if (iGroupCount >= 3) {
+			IPv6Address[iTotal] = ':';
+			iTotal++;
+			iGroupCount = 0;
+		}
+		
+	}
+	std::cout << "Address: %s\n" << IPv6Address << std::endl;
+		
+	
+	std::cout << "****** END analyzeIPv6Frame *****" << std::endl;
+}
 
 void analyzeWebSocketFrame(const unsigned char *pkt_data, int len) {
 	TcpFrameInspector* tcpInspector = new TcpFrameInspector(pkt_data,len);
@@ -757,7 +1405,7 @@ void analyzeWebSocketFrame(const unsigned char *pkt_data, int len) {
 	u_int uiPayloadLocation;
 	u_short ipDataLen;
 	u_int uiTcpHeaderSize;
-	
+	std::cout << "***** analyzeWebSocketFrame *****" << std::endl;
 	ipDataLen = tcpInspector->rtIpDataLen();
 	uiPayloadLocation = tcpInspector->rtPayloadLocation();
 	std::cout << "ipDataLen = " << ipDataLen << std::endl;
@@ -778,10 +1426,11 @@ void analyzeWebSocketFrame(const unsigned char *pkt_data, int len) {
 		else {
 			std::cout << "THE MESSAGE IS NOT GARBLED." << std::endl;
 		}
-
+		
 		delete strp;
 		delete awf;
 	}
+	std::cout << "***** END analyzeWebSocketFrame *****" << std::endl;
 	std::cout << std::endl << std::endl;
 	delete tcpInspector;
 }
@@ -1027,6 +1676,8 @@ void AlarmReporter(ReadInfo read, ReadInfo alrm, TrackGarbledMessages& tgm) {
 		printf("AlarmReporter: id: %s Delay: %lu OVER HIGH TARGET, READ TIME: %lu\n", alrm.getId().c_str(), ullCurrent, read.getTimeStamp());
 	}
 	sprintf_s(cpOutput, sizeof(cpOutput), "%s,%lu,%lu,%lu\n", alrm.getId().c_str(),ullCurrent, alrm.getTimeStamp(), read.getTimeStamp());
+	
+
 	if (outf != NULL)
 	{
 		*outf << cpOutput;
@@ -1259,7 +1910,7 @@ void AlarmEndOfRunReport() {
 	double midPercent = ((double)iAlrmLowTargetCnt + (double)iAlrmMidTargetCnt) / ullAlarmCnt;
 	double highPercent = ((double)iAlrmLowTargetCnt + (double)iAlrmMidTargetCnt + (double)iAlrmHighTargetCnt) / ullAlarmCnt;
 	unsigned long long numOver = ullAlarmCnt - (iAlrmLowTargetCnt + iAlrmMidTargetCnt + iAlrmHighTargetCnt);
-
+	
 	std::cout << "Alarm End Of Run Report: \n\tLow Target: " <<100 * lowPercent << "\n\tMid Target: " <<100 * midPercent << "\n\t" << "High Target: "
 		<< 100 * highPercent << std::endl;
 	if (numOver > 0) {
@@ -1274,6 +1925,28 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType) {
 	switch (fdwCtrlType) {
 	case CTRL_C_EVENT:
 		std::cout << "CTRL-C Caught..." << std::endl;
+		if (iClassType == 5) {//We are using pncdupprocessor
+			std::cout << "Calculating Duplicates: " << std::endl;
+
+			pPNCRecMap->calculateDups();
+			pPNCRecMap->writeDupsToFile();
+			std::cout << "Number of distinct READS: " << pPNCRecMap->rtRawDistinctReadIds() << std::endl;
+			std::cout << "Number of duplicate READS: " << pPNCRecMap->rtRawDuplicateReads() << std::endl;
+			std::cout << "Percentage of READS duplicated: " << pPNCRecMap->rtPercentReadsDuplicated() << std::endl;	
+			exit(1);
+			break;
+		}
+		if (iClassType == 6) {
+			pPNCRecMap->calculateDups();
+			pPNCRecMap->writeDupsToFile();
+			pPNCAlarmMap->calculateDups();
+			pPNCAlarmMap->writeDupsToFile();
+			std::cout << "Number of distinct READS: " << pPNCRecMap->rtRawDistinctReadIds() << std::endl;
+			std::cout << "Number of duplicate READS: " << pPNCRecMap->rtRawDuplicateReads() << std::endl;
+			std::cout << "Percentage of READS duplicated: " << pPNCRecMap->rtPercentReadsDuplicated() << std::endl;
+			exit(1);
+			break;
+		}
 		std::cout << "Size of READ Queue: " << pAggRecMap->getSize() << std::endl;
 		std::cout << "Total Number of READS added: " << ullReadCnt << std::endl;
 		std::cout << "Total Number of Messages trapped going to the PNC: " << ullPNCCnt << std::endl;

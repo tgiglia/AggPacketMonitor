@@ -155,6 +155,8 @@ bool MTReportRecMap::saveMapToDisk(std::ofstream* outfile) {
 			std::map<std::string, ReadInfo>::iterator it = aggMap->begin();
 			while (it != aggMap->end()) {
 				ReadInfo ri = it->second;	
+				
+				
 				*outfile << ri.getId() << "," << ri.getTimeStamp() << std::endl;
 				it++;
 			}
@@ -173,6 +175,38 @@ bool MTReportRecMap::saveMapToDisk(std::ofstream* outfile) {
 		break;
 	}
 	return true;
+}
+
+bool PNCReportMap::calculateDups() {
+	
+	rawDistinctReadIds = aggMap->size();
+	std::map<std::string, ReadInfo>::iterator it = aggMap->begin();
+	while (it != aggMap->end()) {
+		ReadInfo ri = it->second;
+		if (ri.getTimeStamp() > 0) {//This READ has dups
+			rawDuplicateMessages = ri.getTimeStamp() + rawDuplicateMessages;
+			rawDuplicateReads++;
+		}
+		it++;
+	}
+	
+	percentReadsDuplicated = (float)rawDuplicateReads / (float)rawDistinctReadIds;
+	return true; 
+}
+
+bool PNCReportMap::writeDupsToFile() {
+	std::ofstream* outf;
+	outf = new std::ofstream(sPath.c_str());
+	if (!outf) {
+		std::cout << "PNCReportMap::writeDupsToFile: Error we could not open DuplicateReads.csv for writing." << std::endl;
+		return false;
+	}
+	std::map<std::string, ReadInfo>::iterator it = aggMap->begin();
+	while (it != aggMap->end()) {
+		ReadInfo ri = it->second;
+		*outf << ri.getId() << "," << ri.getTimeStamp() << std::endl;
+		it++;
+	}
 }
 
 MTReportRecQueue::MTReportRecQueue() {

@@ -1,6 +1,7 @@
 #pragma once
 #include "BitMasking.h"
 #include <iostream>
+#include <in6addr.h>
 
 /* 4 bytes IP address */
 typedef struct ip_address
@@ -25,7 +26,22 @@ typedef struct ip_header
 	ip_address	saddr;		// Source address
 	ip_address	daddr;		// Destination address
 	u_int	op_pad;			// Option + Padding
-}ip_header;
+}ip_header; 
+
+
+struct ipv6_header
+{
+	unsigned int
+		version : 4,
+		traffic_class : 8,
+		flow_label : 20;
+	uint16_t length;
+	uint8_t  next_header;
+	uint8_t  hop_limit;
+	struct in6_addr src;
+	struct in6_addr dst;
+};
+
 
 /* UDP header*/
 typedef struct udp_header
@@ -52,6 +68,7 @@ typedef struct tcp_header
 class TcpFrameInspector {
 protected:
 	ip_header* ih;
+	ipv6_header* i6h;
 	tcp_header* tcpH;
 	const unsigned char* pkt_data;
 	u_short sport;
@@ -66,14 +83,20 @@ protected:
 	unsigned int sequenceNum;
 	unsigned int ackNum;
 	char cpDestIp[64];
+	unsigned char cpIPv6Dest[64];
+	unsigned char cpIPv6Source[64];
 	void showControlBits();
 	void DisplayTotalLengthBits();
 	void showFragmentBits();
 	void showFragmentOffset();
+	void showIPv6Header();
+	void saveFrameToDisk(char* cpFile);
+	bool deriveIPv6Addresses();
 public:
 	TcpFrameInspector(const unsigned char* pkt,int len);
 	void inspectFrame();
 	void inspectFrameNoDbg();
+	void inspectFrameDbg();
 	ip_header* rtIpHeader() { return ih; }
 	tcp_header* rtTcpHeader() { return tcpH; }
 	u_short rtSport() { return sport; }
@@ -87,6 +110,15 @@ public:
 	u_int rtPayloadLocation() { return uiPayloadLocation; }
 	u_short rtIdentification() { return identification; }
 	char* rtDestIp() { return cpDestIp; }
+	unsigned char* rtIPv6Source() { return cpIPv6Source; }
+	unsigned char* rtIPv6Dest() { return cpIPv6Dest; }
 	bool isMFBitSet();
-
+	unsigned char getLeastSignificantNibble(unsigned char c) { return c & 0x0F; }
+	unsigned char getMostSignificantNibble(unsigned char c) { unsigned char tmp = c & 0xF0; return tmp >> 4; }
+	unsigned char translateNumberToChar(unsigned char c);
+private:
+	void IPv4Processor();
+	void IPv6Processor();
+	void writeAddressesToDisk(char* filepath);
+	
 };
