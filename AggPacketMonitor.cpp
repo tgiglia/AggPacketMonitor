@@ -615,24 +615,23 @@ void packet_consumer_duplicate_readalarm_vector(PCapFrameVector& pcfv) {
 	ih = tcpInspector.rtIpHeader();
 	tcpH = tcpInspector.rtTcpHeader();
 	
-	if (dport != pConfig->rtusPncPort()) {
-		std::cout << "Dest port: " << dport << " does not equal PNC port: " << pConfig->rtusPncPort() << std::endl;
-		delete[] ucp;
-		return;
-	}
+	
 	//get the Source and Destination addresses
 	unsigned char* ucpSource = tcpInspector.rtIPv6Source();
-	unsigned char* ucpDest = tcpInspector.rtIPv6Source();
+	unsigned char* ucpDest = tcpInspector.rtIPv6Dest();
 	//If the Source IP is the Aggregator call WSProcessorPNCVector
 	int iCmp = strcmp((const char*)ucpSource, pConfig->rtAggregatorIP().c_str());
+	//std::cout << " compare of " << ucpSource << " and " << pConfig->rtAggregatorIP().c_str() << " returned " << iCmp << std::endl;
 	if (iCmp == 0) {
 		WSProcessorPNCVector(pcfv, uiPayloadLocation);
 	}
 	else {
 		//If the Source address is the PNC and the Dest address is  the Aggregator call WSAlarmProcessorPNCVector
 		iCmp = strcmp((const char*)ucpSource, pConfig->rtPNCIP().c_str());
+		//std::cout << " compare of " << ucpSource << " and " << pConfig->rtPNCIP().c_str() << " returned " << iCmp << std::endl;
 		if (iCmp == 0) {
 			int iDestCmp = strcmp((const char*)ucpDest, pConfig->rtAggregatorIP().c_str());
+			//std::cout << " compare of " << ucpDest << " and " << pConfig->rtAggregatorIP().c_str() << " returned " << iDestCmp << std::endl;
 			if (iDestCmp == 0) {
 				WSAlarmProcessorPNCVector(pcfv, uiPayloadLocation);
 			}
@@ -1238,43 +1237,50 @@ void WSProcessorVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
 void WSAlarmProcessorPNCVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
 	std::vector<unsigned char>* pv = pcfv.rtPktData();
 	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message, not a WS message
-		std::cout << "WSAlarmProcessorPNCVector: TCP control message, returning." << std::endl;
+		//std::cout << "WSAlarmProcessorPNCVector: TCP control message, returning." << std::endl;
 		ullCntrl++;
 		return;
 	}
 	if (pv->size() <= (uiPayloadLocation + 9)) {//This is a WS control message
-		std::cout << "WSAlarmProcessorPNCVector: WS control message, returning." << std::endl;
+		//std::cout << "WSAlarmProcessorPNCVector: WS control message, returning." << std::endl;
 		ullWSCntrl++;
 		return;
 	}
 	std::cout << "WSAlarmProcessorPNCVector: Analyzing packet..." << std::endl;
-	std::string* strp = new std::string();
-	AnalyzeWebsocketFrameVector awf;
-	awf.AnalyzeFrame(pcfv, strp, uiPayloadLocation);
-	//std::cout << strp->c_str() << std::endl;
-	int n = strp->length();
-	if (n <= 0) {
-		ullNoDecode++;
-		return;
-	}
+	unsigned long ulPktSize = pv->size();
+	unsigned char* ucp = new unsigned char[ulPktSize];
+	std::copy(pv->begin(), pv->end(), ucp);
+	unsigned char* ucpPayload = &ucp[uiPayloadLocation];
+
+	
 	//We have a decoded string. Now its time to find the READ ID
-	char* cpUrl = strstr((char*)strp->c_str(), "<read id=");
+	char* cpUrl = strstr((char*)ucpPayload, "<read");
 	if (cpUrl == NULL) {
-		std::cout << "WSAlarmProcessorPNCVector: coult not find <read id=" << std::endl;
+		std::cout << "WSAlarmProcessorPNCVector: could not find <read"<<std::endl;
+		/*outf << "Could not find <read for: " << ucpPayload << std::endl;
+		*outf << "************************************************" << std::endl << std::endl;
+		outf->flush();*/
 		ullNoId++;
 		return;
 	}
+	char* cpId = strstr(cpUrl, "id=");
+	if (cpId == NULL) {
+		std::cout << "WSAlarmProcessorPNCVector: could not find id=" << std::endl;
+		ullNoId++;
+		return;
+	}
+	std::cout << "WSAlarmProcessorPNCVector: Found ID!..." << std::endl;
 	//crawl up to the begining of the id
-	for (int i = 0;i < 10;i++) {
-		cpUrl++;
+	for (int i = 0;i < 4;i++) {
+		cpId++;
 	}
 	char cpTemp[128];
 	memset(&cpTemp, 0, 128);
 	int cnt = 0;
 	do {
-		if (cpUrl[cnt] == ' ' || cpUrl[cnt] == '"')
+		if (cpId[cnt] == ' ' || cpId[cnt] == '"')
 			break;
-		cpTemp[cnt] = cpUrl[cnt];
+		cpTemp[cnt] = cpId[cnt];
 		cnt++;
 	} while (cnt < 126);
 	//Ok the READ ID is in cpTemp, now we have to figure out if its been seen before.
@@ -1283,6 +1289,7 @@ void WSAlarmProcessorPNCVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
 	unsigned __int64 tempTime = 0;
 	bool bFind = pPNCAlarmMap->isThere(cpTemp, tempTime);
 	if (bFind) {
+		//printf("WSAlarmProcessorPNCVector: found a dup %s, its value will be: %d\n",cpTemp, tempTime + 1);
 		ReadInfo updateObj(cpTemp, tempTime + 1);
 		pPNCAlarmMap->erase(cpTemp);
 		pPNCAlarmMap->insertRec(updateObj);
@@ -1294,20 +1301,20 @@ void WSAlarmProcessorPNCVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
 		pPNCAlarmMap->insertRec(theId);
 	}
 
-	delete strp;
+	delete ucp;
 }
 
 void WSProcessorPNCVector(PCapFrameVector& pcfv, u_int uiPayloadLocation) {
 	std::vector<unsigned char>* pv = pcfv.rtPktData();
 	//std::cout << "WSProcessorPNCVector: called!" << std::endl;
 	if (uiPayloadLocation >= pv->size() - 1) {//this is probably a TCP control message, not a WS message
-		std::cout << "WSProcessorPNCVector: TCP control message, returning." << std::endl;
+		//std::cout << "WSProcessorPNCVector: TCP control message, returning." << std::endl;
 		ullCntrl++;
 		return;
 	}
 
 	if (pv->size() <= (uiPayloadLocation + 9)) {//This is a WS control message
-		std::cout << "WSProcessorPNCVector: WS control message, returning." << std::endl;
+		//std::cout << "WSProcessorPNCVector: WS control message, returning." << std::endl;
 		ullWSCntrl++;
 		return;
 	}
@@ -1944,6 +1951,9 @@ BOOL WINAPI CtrlHandler(DWORD fdwCtrlType) {
 			std::cout << "Number of distinct READS: " << pPNCRecMap->rtRawDistinctReadIds() << std::endl;
 			std::cout << "Number of duplicate READS: " << pPNCRecMap->rtRawDuplicateReads() << std::endl;
 			std::cout << "Percentage of READS duplicated: " << pPNCRecMap->rtPercentReadsDuplicated() << std::endl;
+			std::cout << "Number of distinct ALARMS: " << pPNCAlarmMap->rtRawDistinctReadIds() << std::endl;
+			std::cout << "Number of duplicate ALARMS: " << pPNCAlarmMap->rtRawDuplicateReads() << std::endl;
+			std::cout << "Percentage of ALARMS duplicated:  " << pPNCAlarmMap->rtPercentReadsDuplicated() << std::endl;
 			exit(1);
 			break;
 		}

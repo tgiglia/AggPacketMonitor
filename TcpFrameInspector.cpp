@@ -93,7 +93,7 @@ void TcpFrameInspector::inspectFrameDbg() {
 		IPv6Processor();
 		std::cout << "\tLength: " << ip_len << std::endl;
 		std::cout << "\tSource Address: " << cpIPv6Source << std::endl;
-		std::cout << "\tDestination Address: " << cpIPv6Source << std::endl;
+		std::cout << "\tDestination Address: " << cpIPv6Dest << std::endl;
 		puts("");
 	}	
 	
@@ -124,10 +124,10 @@ void TcpFrameInspector::IPv6Processor() {
 	uiPayloadLocation = 54 + uiTcpHeaderSize;
 	
 	deriveIPv6Addresses();
-	printf("TcpFrameInspector::IPv6Processor: sport: %d  dport: %d windowSize: %u sequenceNum: %u ackNum: %u TcpHeaderSize: %u PayloadLocation: %u\n",
-		sport,dport,windowSize,sequenceNum,ackNum,uiTcpHeaderSize,uiPayloadLocation);
-	printf("TcpFrameInspector::IPv6Processor: cpIPv6Source: %s\n", cpIPv6Source);
-	printf("TcpFrameInspector::IPv6Processor: cpIPv6Des: %s\n", cpIPv6Dest);
+	/*printf("TcpFrameInspector::IPv6Processor: sport: %d  dport: %d windowSize: %u sequenceNum: %u ackNum: %u TcpHeaderSize: %u PayloadLocation: %u\n",
+		sport,dport,windowSize,sequenceNum,ackNum,uiTcpHeaderSize,uiPayloadLocation);*/
+	//printf("TcpFrameInspector::IPv6Processor: cpIPv6Source: %s\n", cpIPv6Source);
+	//printf("TcpFrameInspector::IPv6Processor: cpIPv6Des: %s\n", cpIPv6Dest);
 	//saveFrameToDisk("IPv6.txt");
 	
 }
@@ -156,6 +156,7 @@ bool TcpFrameInspector::deriveIPv6Addresses() {
 			iGroupCount = 0;
 		}
 	}
+	cpIPv6Source[iTotal - 1] = 0;
 	iTotal = 0;
 	iGroupCount = 0;
 
@@ -177,7 +178,7 @@ bool TcpFrameInspector::deriveIPv6Addresses() {
 			iGroupCount = 0;
 		}
 	}
-
+	cpIPv6Dest[iTotal - 1] = 0;
 	return true;
 }
 
@@ -226,7 +227,7 @@ void TcpFrameInspector::inspectFrameNoDbg() {
 		i6h = (ipv6_header*)(pkt_data +
 			14); //length of ethernet header
 		IPv6Processor();
-		showIPv6Header();
+		//showIPv6Header();
 	}
 	
 }
