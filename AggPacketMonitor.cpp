@@ -864,14 +864,14 @@ void packet_consumer_readalarm(PCapFrameVector& pcfv)
 	ucpPayload = (u_char*)&ucp[uiPayloadLocation];
 	if (iDestType == 1)// This may be a PUT READ to the agg
 	{
-		//printf("INGRESS PACKET. Dest: %s sport: %d  dport = %d\n",cpDestIp,sport,dport);
+		printf("INGRESS PACKET. Dest: %s sport: %d  dport = %d\n",cpDestIp,sport,dport);
 		AggregatorProcessorVector(pcfv, uiPayloadLocation, now);
 		//AggregatorProcessor(now, ih, tcpH, ucpPayload, tcpInspector.rtIpDataLen() - uiPayloadLocation);
 	}
 	else {
-		//printf("EGRESS PACKET. Dest: %s sport: %d  dport = %d\n", cpDestIp, sport, dport);
-		RESTAlarmProcessor(pcfv, uiPayloadLocation,now);
-		//WSProcessorVector(pcfv, uiPayloadLocation);
+		printf("EGRESS PACKET. Dest: %s sport: %d  dport = %d\n", cpDestIp, sport, dport);
+		//RESTAlarmProcessor(pcfv, uiPayloadLocation,now);
+		WSProcessorVector(pcfv, uiPayloadLocation);
 	}
 
 	delete[]ucp;
@@ -1131,12 +1131,12 @@ void WSAggAlarmProcessor(PCapFrameVector& pcfv, u_int uiPayloadLocation, time_t 
 	std::string* strp = new std::string();
 	AnalyzeWebsocketFrameVector awf;
 	awf.AnalyzeFrame(pcfv, strp, uiPayloadLocation);
-	std::cout << "WSAggAlarmProcessor: decoded string: " << strp->c_str() << std::endl;
+	//std::cout << "WSAggAlarmProcessor: decoded string: " << strp->c_str() << std::endl;
 	int n = strp->length();
 	if (n <= 0) {
 		ullNoDecode++;
 		
-		//wftd->saveFrameToDisk(pcfv, "Decode FAILED");
+		wftd->saveFrameToDisk(pcfv, "Decode FAILED");
 		return;
 		
 	}
